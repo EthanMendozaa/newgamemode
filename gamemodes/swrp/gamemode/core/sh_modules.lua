@@ -9,11 +9,13 @@
 	       • any addon's      lua/swrp_modules/<name>/
 	     so future systems ship as standalone addons, zero core edits.
 
-	Path resolution: when swrp is the active gamemode, its `gamemode/` folder
-	and `garrysmod/lua/` are both Lua search roots, so `file.Find`/`include`
-	resolve "modules/..." against the gamemode and "swrp_modules/..." against
-	lua/. We never use absolute `gamemodes/...` paths — `include` can't resolve
-	them.
+	Path resolution: GMod's "LUA" filesystem exposes gamemode files under
+	"<gamemodefolder>/gamemode/..." — NOT at the gamemode root. Every file.Find
+	and include in this loader therefore goes through Loader.GamemodeRoot
+	("swrp/gamemode/"), exactly like DarkRP's GM.FolderName-prefixed loader.
+	Addon drop-ins ("swrp_modules/...") resolve against mounted lua/ folders.
+	(Relative includes like init.lua -> shared.lua work file-relative and don't
+	need the prefix; only root-based lookups do.)
 
 	Module convention:
 	  modules/<name>/
@@ -29,6 +31,13 @@
 
 SWRP.Loader = SWRP.Loader or {}
 local Loader = SWRP.Loader
+
+-- "swrp/gamemode/" — the LUA-filesystem prefix for this gamemode's files.
+-- The engine sets GM.FolderName (and GM.Folder = "gamemodes/<name>") before
+-- gamemode files run; GAMEMODE covers lua_refresh after load.
+local gm       = GM or GAMEMODE or {}
+local gmFolder = gm.FolderName or string.match( gm.Folder or "", "([^/]+)$" ) or "swrp"
+Loader.GamemodeRoot = gmFolder .. "/gamemode/"
 
 --------------------------------------------------------------------------------
 -- Logging
@@ -119,7 +128,7 @@ local CORE_ORDER = {
 }
 
 function Loader.LoadCore()
-	local files = file.Find( "core/*.lua", "LUA" ) or {}
+	local files = file.Find( Loader.GamemodeRoot .. "core/*.lua", "LUA" ) or {}
 
 	-- Index what's present (excluding ourselves — already loaded).
 	local present = {}
@@ -131,7 +140,7 @@ function Loader.LoadCore()
 	local function load( f )
 		if not present[ f ] or loaded[ f ] then return end
 		loaded[ f ] = true
-		Loader.IncludeRealm( "core/" .. f )
+		Loader.IncludeRealm( Loader.GamemodeRoot .. "core/" .. f )
 	end
 
 	-- Declared order first, then everything else alphabetically.
@@ -149,8 +158,8 @@ end
 
 -- Roots searched for modules, in priority order.
 local MODULE_ROOTS = {
-	"modules",            -- gamemode's own modules
-	"swrp_modules",   -- drop-in modules shipped by any addon
+	Loader.GamemodeRoot .. "modules",   -- gamemode's own modules
+	"swrp_modules",                     -- drop-in modules shipped by any addon (lua/)
 }
 
 -- Pass 1 — read every module's manifest so names + dependencies are known
@@ -280,9 +289,18 @@ end
 --------------------------------------------------------------------------------
 
 function Loader.Boot()
-	Loader.Log( "booting v%s (%s realm)", SWRP.Version, SWRP.Realm )
+	Loader.Log( "booting v%s (%s realm, root '%s')", SWRP.Version, SWRP.Realm, Loader.GamemodeRoot )
 
 	Loader.LoadCore()
+
+	-- Sanity: if core produced nothing, the LUA-path root is wrong (or files
+	-- are missing). This failure mode once shipped as a clean-looking boot —
+	-- never let it be quiet again.
+	if not SWRP.Util then
+		Loader.Error( "CORE FAILED TO LOAD — file.Find found nothing under '%score/'. The gamemode is NOT running.", Loader.GamemodeRoot )
+		return
+	end
+
 	local count = Loader.LoadModules()
 
 	Loader.Log( "boot complete — %d module(s) loaded", count )
