@@ -1,9 +1,15 @@
 --[[----------------------------------------------------------------------------
-	UI module (shared) — main menu net wiring.
+	UI module (shared) — main menu net wiring + the SWRP.UI namespace root.
+
+	The namespace MUST be created here: cl_* files also create it, but they
+	never run on the server — without this line the SERVER blocks below would
+	index a nil SWRP.UI at load.
 
 	F4 (ShowSpare2) fires SERVER-side in GMod, so the server bounces it to the
 	client through the net wrapper, and the client opens the menu shell.
 ------------------------------------------------------------------------------]]
+
+SWRP.UI = SWRP.UI or {}
 
 SWRP.Net.Register( "swrp.ui.open_menu", {
 	from   = "server",

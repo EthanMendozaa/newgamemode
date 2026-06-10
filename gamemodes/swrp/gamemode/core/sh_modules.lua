@@ -96,12 +96,30 @@ end
 
 -- Recursively include every .lua file under `dir` (a search-root-relative
 -- path), optionally skipping files whose lowercased basename is in `skip`.
+--
+-- Realm order is sh_ -> sv_ -> cl_ (the DarkRP convention), NOT alphabetical:
+-- sh_ files create the module's SWRP.* namespace; alphabetical order would run
+-- cl_* first on clients and index a nil namespace at load.
 function Loader.IncludeDir( dir, skip )
 	skip = skip or {}
 	local files, dirs = file.Find( dir .. "/*", "LUA" )
 
+	local buckets = { sh = {}, other = {}, sv = {}, cl = {} }
 	for _, f in ipairs( files or {} ) do
 		if string.EndsWith( f, ".lua" ) and not skip[ string.lower( f ) ] then
+			local prefix = string.sub( f, 1, 3 )
+			local bucket = ( prefix == "sh_" and "sh" )
+				or ( prefix == "sv_" and "sv" )
+				or ( prefix == "cl_" and "cl" )
+				or "other"   -- unprefixed loads as shared (IncludeRealm warns)
+			local list = buckets[ bucket ]
+			list[ #list + 1 ] = f
+		end
+	end
+
+	for _, group in ipairs( { "sh", "other", "sv", "cl" } ) do
+		table.sort( buckets[ group ] )
+		for _, f in ipairs( buckets[ group ] ) do
 			Loader.IncludeRealm( dir .. "/" .. f )
 		end
 	end
