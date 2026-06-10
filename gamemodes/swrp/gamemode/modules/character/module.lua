@@ -9,4 +9,4 @@
 
 MODULE.Name    = "Character"
 MODULE.Version = "1.0.0"
-MODULE.Depends = { "hierarchy" }
+MODULE.Depends = { "hierarchy", "ui" }   -- ui: designation picker + toasts

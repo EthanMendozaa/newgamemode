@@ -1,10 +1,9 @@
 --[[----------------------------------------------------------------------------
 	Character module (client) — ready handshake + designation picker.
 
-	The picker is intentionally plain Derma: it ships before the UI kit and
-	visual-direction decision, and will be rebuilt on the kit in Phase 2.
-	It cannot be dismissed without choosing (first-join requirement), but never
-	blocks gameplay — it's a window, not a lock screen.
+	Built on the UI kit (SWRP.UI) — first impression screen. It cannot be
+	dismissed without choosing (first-join requirement), but never blocks
+	gameplay — it's a window, not a lock screen.
 ------------------------------------------------------------------------------]]
 
 local Character = SWRP.Character
@@ -24,25 +23,23 @@ local frame = nil
 function Character.OpenDesignationPicker( digits )
 	if IsValid( frame ) then frame:Remove() end
 
-	frame = vgui.Create( "DFrame" )
-	frame:SetSize( 340, 170 )
-	frame:Center()
-	frame:SetTitle( "Choose your designation" )
-	frame:SetDraggable( true )
-	frame:ShowCloseButton( false )   -- must choose one
-	frame:MakePopup()
+	local UI    = SWRP.UI
+	local theme = SWRP.Theme
+	local C     = theme.colors
 
-	local info = vgui.Create( "DLabel", frame )
-	info:SetText( "Pick a unique " .. digits .. "-digit designation (e.g. 4456).\nIt becomes part of your name: 501st PVT 4456 Name" )
+	frame = UI.Frame( 400, 240, "Choose your designation", { noClose = true } )
+
+	local info = vgui.Create( "DLabel", frame.Body )
+	info:SetText( "Pick a unique " .. digits .. "-digit designation — it becomes part of your name,\nlike 501st PVT 4456 Para. This is permanent (staff can change it)." )
+	info:SetFont( "SWRP.Small" )
+	info:SetTextColor( C.textDim )
 	info:SetWrap( true )
 	info:Dock( TOP )
-	info:DockMargin( 10, 4, 10, 0 )
 	info:SetTall( 40 )
 
-	local entry = vgui.Create( "DTextEntry", frame )
+	local entry = UI.TextEntry( frame.Body )
 	entry:Dock( TOP )
-	entry:DockMargin( 10, 8, 10, 0 )
-	entry:SetTall( 30 )
+	entry:DockMargin( 0, theme.spacing.pad, 0, 0 )
 	entry:SetNumeric( true )
 	entry:SetUpdateOnType( true )
 	entry:SetPlaceholderText( string.rep( "0", digits ) )
@@ -50,20 +47,15 @@ function Character.OpenDesignationPicker( digits )
 		if #value > digits then self:SetValue( string.sub( value, 1, digits ) ) end
 	end
 
-	local status = vgui.Create( "DLabel", frame )
+	local status = vgui.Create( "DLabel", frame.Body )
 	status:SetText( "" )
+	status:SetFont( "SWRP.Small" )
 	status:Dock( TOP )
-	status:DockMargin( 10, 4, 10, 0 )
+	status:DockMargin( 0, 6, 0, 0 )
 	status:SetTall( 18 )
 	frame._status = status
 
-	local submit = vgui.Create( "DButton", frame )
-	submit:SetText( "Claim designation" )
-	submit:Dock( BOTTOM )
-	submit:DockMargin( 10, 6, 10, 10 )
-	submit:SetTall( 30 )
-	submit.DoClick = function()
-		local C = SWRP.Theme.colors
+	local submit = UI.Button( frame.Body, "Claim designation", "primary", function()
 		local value = entry:GetValue()
 		if #value ~= digits or not string.match( value, "^%d+$" ) then
 			status:SetText( "Must be exactly " .. digits .. " digits." )
@@ -73,9 +65,11 @@ function Character.OpenDesignationPicker( digits )
 		status:SetText( "Checking..." )
 		status:SetTextColor( C.textDim )
 		SWRP.Net.Send( "swrp.character.designation_claim", { designation = value } )
-	end
+	end )
+	submit:Dock( BOTTOM )
 
-	entry.OnEnter = submit.DoClick
+	entry.OnEnter = function() submit:DoClick() end
+	entry:RequestFocus()
 end
 
 function Character.OnDesignationResult( ok, reason )
@@ -85,7 +79,7 @@ function Character.OnDesignationResult( ok, reason )
 	if ok then
 		frame:Remove()
 		frame = nil
-		chat.AddText( C.accent, "[SWRP] ", C.text, "Designation set." )
+		SWRP.UI.Toast( "Designation set", "success" )
 	else
 		frame._status:SetText( reason ~= "" and reason or "Rejected — try another." )
 		frame._status:SetTextColor( C.danger )

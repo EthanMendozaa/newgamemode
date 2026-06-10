@@ -5,21 +5,22 @@
 	(invariant 7). No drawing code hardcodes visuals; reskinning the gamemode
 	is editing/swapping this one file.
 
-	Direction (locked): clean-modern readability + imperial structure, in a
-	clone-wars palette — dark slate surfaces, Republic blue primary, armor-white
-	text, holo-gold secondary accent, crisp 4px corners, uppercase condensed
-	headers with accent bars.
+	Direction (locked via rendered mockups): clean-modern readability +
+	imperial structure, clone-wars palette — dark slate surfaces, Republic
+	blue primary, armor-white text, holo-gold secondary accent, crisp corners,
+	uppercase headers with accent bars.
 ------------------------------------------------------------------------------]]
 
 SWRP.Theme = {
 	colors = {
-		-- Surfaces (blue-slate ramp — cool clone-wars tones, raised = lighter)
-		bg        = Color( 16, 24, 43, 244 ),    -- window background
-		bgLight   = Color( 24, 34, 56, 244 ),    -- cards / rows
-		bgRaised  = Color( 34, 46, 74, 244 ),    -- hover / raised elements
+		-- Surfaces (blue-slate ramp — raised = lighter)
+		bg        = Color( 16, 24, 43, 250 ),    -- window background
+		bgLight   = Color( 24, 34, 56, 250 ),    -- cards / rows
+		bgRaised  = Color( 34, 46, 74, 250 ),    -- hover / raised elements
 		titleBar  = Color( 19, 28, 51, 255 ),
+		divider   = Color( 43, 58, 94, 200 ),
 
-		-- Text (clone armor white; dim still holds 4.5:1+ on bgLight)
+		-- Text (clone armor white; dim holds 4.5:1+ on bgLight)
 		text      = Color( 238, 242, 247 ),
 		textDim   = Color( 148, 160, 184 ),
 
@@ -43,20 +44,22 @@ SWRP.Theme = {
 	},
 
 	spacing = {
-		pad    = 10,    -- inner padding
+		pad    = 12,    -- inner padding
 		margin = 24,    -- HUD distance from screen edges
 		barH   = 14,    -- stat bar height
-		rowH   = 30,    -- table/list row height
+		rowH   = 34,    -- table/list row height
 	},
 
 	kit = {
-		radius   = 4,     -- crisp military corners (0 = imperial, 10 = soft)
-		titleH   = 36,    -- window title bar height
-		btnH     = 30,    -- button height
-		tabH     = 32,    -- tab bar height
+		radius   = 6,     -- crisp military corners
+		titleH   = 44,    -- window title bar height
+		btnH     = 34,    -- button height
+		tabH     = 36,    -- tab bar height
 		accentW  = 3,     -- left accent bar width on cards/rows
-		popupW   = 300,   -- accept/deny popup width
-		toastW   = 280,
+		popupW   = 310,   -- accept/deny popup width
+		toastW   = 290,
+		blur     = 4,     -- background blur behind windows (0 = off)
+		hoverSpd = 10,    -- hover transition speed (lerp factor per second x10)
 	},
 
 	overhead = {
@@ -70,23 +73,23 @@ SWRP.Theme = {
 --------------------------------------------------------------------------------
 
 surface.CreateFont( "SWRP.Title", {
-	font = "Roboto", size = 18, weight = 700, antialias = true,
+	font = "Roboto", size = 20, weight = 700, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.Name", {
-	font = "Roboto", size = 22, weight = 700, antialias = true,
+	font = "Roboto", size = 24, weight = 700, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.Sub", {
-	font = "Roboto", size = 16, weight = 500, antialias = true,
+	font = "Roboto", size = 17, weight = 500, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.Small", {
-	font = "Roboto", size = 14, weight = 500, antialias = true,
+	font = "Roboto", size = 15, weight = 500, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.Button", {
-	font = "Roboto", size = 15, weight = 600, antialias = true,
+	font = "Roboto", size = 16, weight = 600, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.Overhead", {

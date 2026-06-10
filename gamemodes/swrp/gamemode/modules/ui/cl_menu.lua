@@ -11,8 +11,7 @@
 	  }
 
 	Opens on F4 (relayed via sh_ui) or the `swrp_menu` console command.
-	A built-in "Character" tab shows the local player's derived identity —
-	Phase 2 modules (battalion management, requests) add theirs.
+	Ships with a built-in "Character" tab; Phase 2/3 modules add theirs.
 ------------------------------------------------------------------------------]]
 
 SWRP.UI = SWRP.UI or {}
@@ -41,9 +40,12 @@ function UI.OpenMenu()
 
 	local theme = SWRP.Theme
 
+	-- Sized to content density, not the whole screen — no dead void below.
+	local w = math.Clamp( ScrW() * 0.46, 640, 860 )
+	local h = math.Clamp( ScrH() * 0.58, 440, 580 )
+
 	-- Title follows the gamemode brand (GM.Name) — renames are one-line edits.
-	menu = UI.Frame( math.min( 920, ScrW() * 0.7 ), math.min( 620, ScrH() * 0.75 ),
-		( GAMEMODE and GAMEMODE.Name ) or "SWRP" )
+	menu = UI.Frame( w, h, ( GAMEMODE and GAMEMODE.Name ) or "SWRP" )
 
 	local tabs = UI.Tabs( menu.Body )
 
@@ -76,15 +78,16 @@ UI.RegisterMenuTab( {
 	order = 10,
 	build = function( panel )
 		local theme = SWRP.Theme
+		local S     = theme.spacing
 
 		local card = UI.PlayerCard( panel, LocalPlayer() )
 		card:Dock( TOP )
-		card:SetTall( 64 )
-		card:DockMargin( 0, 0, 0, theme.spacing.pad )
+		card:SetTall( 76 )
+		card:DockMargin( 0, 0, 0, S.pad )
 
 		local info = UI.Card( panel, "Service record" )
 		info:Dock( TOP )
-		info:SetTall( 110 )
+		info:SetTall( 168 )
 
 		info.PaintOver = function( self, w, h )
 			local C   = theme.colors
@@ -94,18 +97,32 @@ UI.RegisterMenuTab( {
 			local battalion = Character.GetBattalion( ply )
 			local rank      = Character.GetRank( ply )
 
+			local className = "—"
+			if SWRP.Class then
+				local a = SWRP.Class.GetAssignment( Character.GetClassId( ply ) )
+				if a then className = SWRP.Class.Resolve( a ).name end
+			end
+
 			local designation = Character.GetDesignation( ply )
 			local rows = {
-				{ "Battalion",   battalion and battalion.name or "—" },
+				{ "Battalion",   battalion and battalion.name or "—", battalion and battalion.color },
 				{ "Rank",        rank and rank.name or "—" },
+				{ "Class",       className },
 				{ "Designation", designation ~= "" and designation or "Not chosen" },
 			}
 
-			local y = 30
+			local x = theme.kit.accentW + S.pad
+			local y = 38
 			for _, r in ipairs( rows ) do
-				draw.SimpleText( r[ 1 ], "SWRP.Small", 16, y, C.textDim )
-				draw.SimpleText( r[ 2 ], "SWRP.Sub", w * 0.4, y - 2, C.text )
-				y = y + 26
+				draw.SimpleText( r[ 1 ], "SWRP.Small", x, y + 2, C.textDim )
+
+				local vx = w * 0.38
+				if r[ 3 ] then
+					draw.RoundedBox( 3, vx, y + 3, 13, 13, r[ 3 ] )
+					vx = vx + 20
+				end
+				draw.SimpleText( r[ 2 ], "SWRP.Sub", vx, y, C.text )
+				y = y + 31
 			end
 		end
 	end,
