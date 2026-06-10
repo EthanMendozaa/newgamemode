@@ -1,0 +1,13 @@
+# OS noise
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Scratch
+*.tmp
+luac.out
+
+# Machine-local Lua LSP config (absolute local paths)
+.luarc.json

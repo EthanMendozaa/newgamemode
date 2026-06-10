@@ -1,0 +1,6 @@
+"swrp"
+{
+	"base"			"base"
+	"title"			"SWRP_UNNAMED"
+	"menusystem"	"1"
+}
