@@ -57,6 +57,14 @@ hook.Add( "SWRP.CharacterChanged", "SWRP.Class.BattalionMove", function( ply, re
 	if fields.battalion_id then releaseSlot( rec.id ) end
 end )
 
+-- Cross-server sync can move a player's battalion/class too — if the held
+-- slot no longer matches the (repaired) class, free it.
+hook.Add( "SWRP.CharacterSynced", "SWRP.Class.SyncSlots", function( ply, rec )
+	if heldSlot[ rec.id ] and heldSlot[ rec.id ] ~= rec.class_id then
+		releaseSlot( rec.id )
+	end
+end )
+
 --------------------------------------------------------------------------------
 -- Resolver injection (name tag, model, no-void repair)
 --------------------------------------------------------------------------------

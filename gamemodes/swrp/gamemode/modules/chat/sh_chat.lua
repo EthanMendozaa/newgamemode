@@ -16,6 +16,15 @@ Chat.Channels = {
 	me          = { range = 600 },
 }
 
+-- Unknown !/-prefixed chat is suppressed with a hint instead of leaking to the
+-- engine's GLOBAL broadcast (which would bypass proximity). Disable only if a
+-- third-party addon needs to read unknown chat commands from PlayerSay.
+SWRP.Config.RegisterSetting( "chat_strict_commands", {
+	type    = "boolean",
+	default = true,
+	desc    = "Suppress unknown !/-prefixed chat with a hint instead of broadcasting it globally.",
+} )
+
 SWRP.Net.Register( "swrp.chat.msg", {
 	from   = "server",
 	schema = {

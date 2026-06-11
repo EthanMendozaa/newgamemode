@@ -11,6 +11,36 @@
 local Chat      = SWRP.Chat
 local Character = SWRP.Character
 local Commands  = SWRP.Commands
+local Config    = SWRP.Config
+
+--------------------------------------------------------------------------------
+-- Flood control
+--
+-- The engine throttles normal say, but the channel verbs are also reachable
+-- through concommands (swrp_r etc.), which the engine does NOT throttle —
+-- and every message fans out O(players). One limiter covers every path.
+--------------------------------------------------------------------------------
+
+local chatRate = {}
+local RATE_TIMES, RATE_WINDOW = 8, 5
+
+local function withinRate( ply )
+	local sid = ply:SteamID64() or ( "BOT_" .. ply:EntIndex() )
+	local now = CurTime()
+	local st  = chatRate[ sid ]
+
+	if not st or ( now - st.windowStart ) > RATE_WINDOW then
+		chatRate[ sid ] = { windowStart = now, count = 1 }
+		return true
+	end
+
+	st.count = st.count + 1
+	return st.count <= RATE_TIMES
+end
+
+hook.Add( "PlayerDisconnected", "SWRP.Chat.RateCleanup", function( ply )
+	chatRate[ ply:SteamID64() or ( "BOT_" .. ply:EntIndex() ) ] = nil
+end )
 
 --------------------------------------------------------------------------------
 -- Routing
@@ -48,8 +78,13 @@ end
 
 function Chat.Send( ply, channel, text )
 	text = string.Trim( tostring( text or "" ) )
-	if text == "" then return end
+	if text == "" then
+		SWRP.UI.Notify( ply, false, "Nothing to send — add a message" )
+		return
+	end
 	text = string.sub( text, 1, 300 )
+
+	if not withinRate( ply ) then return end
 
 	-- Dead players may not use battalion comms.
 	if channel == "radio" and not ply:Alive() then
@@ -73,8 +108,20 @@ end
 
 -- Default speech + team-chat key (= battalion radio).
 hook.Add( "PlayerSay", "SWRP.Chat.Route", function( ply, text, teamChat )
-	-- The command registry owns the !/ prefix namespace.
-	if string.match( text, "^[!/]" ) then return end
+	-- The !/ prefix namespace belongs to the command registry. Known commands
+	-- are passed through (the registry's own hook handles them in either hook
+	-- order); UNKNOWN prefixed text must not fall through to the engine — base
+	-- PlayerSay would broadcast it globally, bypassing proximity.
+	local cmd = string.match( text, "^[!/](%w+)" )
+	if cmd and Commands.GetAll()[ string.lower( cmd ) ] then return end
+
+	if string.match( text, "^[!/]" ) then
+		if Config.Get( "chat_strict_commands", true ) then
+			Commands.Reply( ply, "Unknown command — try !help" )
+			return ""
+		end
+		return   -- permissive mode: other addons may consume it
+	end
 
 	Chat.Send( ply, teamChat and "radio" or "local", text )
 	return ""

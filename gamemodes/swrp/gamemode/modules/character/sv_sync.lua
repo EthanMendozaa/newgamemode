@@ -26,8 +26,10 @@ DB.RegisterMigration( "character", 4, [[
 	)
 ]] )
 
+-- No "IF NOT EXISTS": MySQL doesn't support it on CREATE INDEX (MariaDB-only);
+-- the migrations ledger already guarantees once-only execution.
 DB.RegisterMigration( "character", 5, [[
-	CREATE INDEX IF NOT EXISTS swrp_sync_at ON swrp_sync ( at )
+	CREATE INDEX swrp_sync_at ON swrp_sync ( at )
 ]] )
 
 local function serverId()
@@ -55,6 +57,8 @@ hook.Add( "SWRP.DBReady", "SWRP.Sync.Start", function( driver )
 		local since = lastPoll
 		lastPoll = os.time()
 
+		-- ">=" tolerates 1s clock granularity; re-processing is harmless because
+		-- reloads are version-gated AND serialized per record.
 		DB.Query( [[
 			SELECT DISTINCT character_id FROM swrp_sync
 			WHERE at >= ? AND server_id <> ?
@@ -65,6 +69,10 @@ hook.Add( "SWRP.DBReady", "SWRP.Sync.Start", function( driver )
 				Character.ReloadFromDB( r.character_id )
 			end
 		end )
+
+		-- Prune consumed events so the table can't grow forever. 60s retention
+		-- comfortably covers every server's poll window; any server may prune.
+		DB.Query( "DELETE FROM swrp_sync WHERE at < ?", { os.time() - 60 } )
 	end )
 
 	log.Info( "cross-server sync polling every %ds (server_id '%s', %s)",

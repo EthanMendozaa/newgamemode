@@ -47,15 +47,17 @@ DB.RegisterMigration( "character", 1, [[
 
 -- Designation is unique server-wide (multiple NULLs allowed on both SQLite and
 -- MySQL, so unset designations don't collide).
+-- No "IF NOT EXISTS" on indexes: MySQL doesn't support it (MariaDB-only), and
+-- the swrp_migrations ledger already guarantees each migration runs once.
 DB.RegisterMigration( "character", 2, [[
-	CREATE UNIQUE INDEX IF NOT EXISTS swrp_characters_designation
+	CREATE UNIQUE INDEX swrp_characters_designation
 	ON swrp_characters ( designation )
 ]] )
 
 -- Rosters and rank slot-cap counts filter by battalion (and rank); keep those
 -- scans indexed at 64-100 players x many offline records.
 DB.RegisterMigration( "character", 3, [[
-	CREATE INDEX IF NOT EXISTS swrp_characters_battalion
+	CREATE INDEX swrp_characters_battalion
 	ON swrp_characters ( battalion_id, rank_id )
 ]] )
 
@@ -169,6 +171,9 @@ function Character.Recompute( ply )
 
 	if rec._dirtyRepair and not rec.isBot then
 		rec._dirtyRepair = nil
+		-- Keep the in-memory version in lockstep with the relative SQL bump, or
+		-- the sync poller sees a phantom remote update on the next event.
+		rec.record_version = rec.record_version + 1
 		DB.Query( [[
 			UPDATE swrp_characters
 			SET battalion_id = ?, rank_id = ?, class_id = ?, record_version = record_version + 1
@@ -220,7 +225,8 @@ local ALLOWED_FIELDS = {
 }
 
 -- One queued commit. `done` MUST be called exactly once on every path so the
--- per-record queue advances.
+-- per-record queue advances; caller callbacks run through SafeCall so a buggy
+-- cb can never stall the queue.
 local function performCommit( rec, fields, cb, opts, done )
 	local function apply()
 		for k, v in pairs( fields ) do rec[ k ] = v end
@@ -232,7 +238,7 @@ local function performCommit( rec, fields, cb, opts, done )
 			if opts and opts.respawn and ply:Alive() then ply:Spawn() end
 			hook.Run( "SWRP.CharacterChanged", ply, rec, fields )
 		end
-		if cb then cb( nil ) end
+		if cb then SWRP.Util.SafeCall( cb, nil ) end
 		done()
 	end
 
@@ -248,7 +254,7 @@ local function performCommit( rec, fields, cb, opts, done )
 		end
 	end
 	if #sets == 0 then
-		if cb then cb( "no valid fields" ) end
+		if cb then SWRP.Util.SafeCall( cb, "no valid fields" ) end
 		done()
 		return
 	end
@@ -262,13 +268,37 @@ local function performCommit( rec, fields, cb, opts, done )
 		function( _, err )
 			if err then
 				log.Error( "Commit failed for %s: %s", rec.id, err )
-				if cb then cb( err ) end
+				if cb then SWRP.Util.SafeCall( cb, err ) end
 				done()
 				return
 			end
 			apply()
 		end
 	)
+end
+
+-- Serialize any async job against this record. Every mutation AND every
+-- sync reload goes through here, so nothing can interleave between another
+-- job's DB round-trip and its in-memory apply. job( done ) must call done()
+-- exactly once.
+function REC_META:_Enqueue( job )
+	local rec = self
+	rec._commitQueue = rec._commitQueue or {}
+	rec._commitQueue[ #rec._commitQueue + 1 ] = job
+
+	if rec._committing then return end
+	rec._committing = true
+
+	local function step()
+		local nextJob = table.remove( rec._commitQueue, 1 )
+		if not nextJob then
+			rec._committing = false
+			return
+		end
+		nextJob( step )
+	end
+
+	step()
 end
 
 --[[
@@ -279,28 +309,16 @@ end
 	write (err = nil on success). opts.respawn respawns the player on success —
 	identity changes apply via respawn (invariant 4).
 
-	Commits on the SAME record are serialized through a queue: each waits for
-	the previous one's DB round-trip, so the in-memory record can never apply
-	out of order against the DB (and record_version stays in lockstep).
+	Commits on the SAME record are serialized through the record's job queue:
+	each waits for the previous one's DB round-trip, so the in-memory record
+	can never apply out of order against the DB (and record_version stays in
+	lockstep).
 ]]
 function REC_META:Commit( fields, cb, opts )
 	local rec = self
-	rec._commitQueue = rec._commitQueue or {}
-	rec._commitQueue[ #rec._commitQueue + 1 ] = { fields = fields, cb = cb, opts = opts }
-
-	if rec._committing then return end
-	rec._committing = true
-
-	local function step()
-		local job = table.remove( rec._commitQueue, 1 )
-		if not job then
-			rec._committing = false
-			return
-		end
-		performCommit( rec, job.fields, job.cb, job.opts, step )
-	end
-
-	step()
+	rec:_Enqueue( function( done )
+		performCommit( rec, fields, cb, opts, done )
+	end )
 end
 
 function REC_META:GetPlayer()
@@ -439,38 +457,48 @@ end )
 -- Re-pull an ONLINE record from the DB after another server mutated it
 -- (cross-server sync). No-ops if our copy is already at/past that version.
 -- Identity-affecting changes apply via respawn (invariant 4).
+--
+-- Serialized through the record's job queue: a reload can never run between
+-- a local Commit's UPDATE and its in-memory apply (which would desync
+-- record_version and silently suppress future syncs).
 function Character.ReloadFromDB( id )
 	local rec = records[ id ]
 	if not rec or rec.isBot then return end
 
-	DB.Query( "SELECT * FROM swrp_characters WHERE id = ? LIMIT 1", { id },
-		function( rows, err )
-			if err or not rows or not rows[ 1 ] then return end
+	rec:_Enqueue( function( done )
+		-- Re-check: the player may have disconnected while queued.
+		if records[ id ] ~= rec then done() return end
 
-			local row = coerceRow( rows[ 1 ] )
-			if row.record_version <= rec.record_version then return end
+		DB.Query( "SELECT * FROM swrp_characters WHERE id = ? LIMIT 1", { id },
+			function( rows, err )
+				if err or not rows or not rows[ 1 ] then done() return end
 
-			local identityChanged =
-				row.battalion_id ~= rec.battalion_id or row.class_id ~= rec.class_id
+				local row = coerceRow( rows[ 1 ] )
+				if row.record_version <= rec.record_version then done() return end
 
-			rec.rp_name_base   = row.rp_name_base
-			rec.designation    = row.designation
-			rec.battalion_id   = row.battalion_id
-			rec.rank_id        = row.rank_id
-			rec.class_id       = row.class_id
-			rec.flags          = row.flags
-			rec.record_version = row.record_version
+				local identityChanged =
+					row.battalion_id ~= rec.battalion_id or row.class_id ~= rec.class_id
 
-			local ply = rec:GetPlayer()
-			if not IsValid( ply ) then return end
+				rec.rp_name_base   = row.rp_name_base
+				rec.designation    = row.designation
+				rec.battalion_id   = row.battalion_id
+				rec.rank_id        = row.rank_id
+				rec.class_id       = row.class_id
+				rec.flags          = row.flags
+				rec.record_version = row.record_version
 
-			Character.Recompute( ply )
-			if identityChanged and ply:Alive() then ply:Spawn() end
-			SWRP.UI.Notify( ply, true, "Your record was updated" )
-			hook.Run( "SWRP.CharacterSynced", ply, rec )
+				local ply = rec:GetPlayer()
+				if not IsValid( ply ) then done() return end
 
-			log.Info( "synced record %s to v%d", id, row.record_version )
-		end )
+				Character.Recompute( ply )
+				if identityChanged and ply:Alive() then ply:Spawn() end
+				SWRP.UI.Notify( ply, true, "Your record was updated" )
+				hook.Run( "SWRP.CharacterSynced", ply, rec )
+
+				log.Info( "synced record %s to v%d", id, row.record_version )
+				done()
+			end )
+	end )
 end
 
 --------------------------------------------------------------------------------

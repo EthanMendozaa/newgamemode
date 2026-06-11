@@ -38,11 +38,13 @@ Commands.Register( "addspawn", {
 			return
 		end
 
+		-- Reference by stable id, not a guessed easy-name global ("501st Legion"
+		-- slugs to 501ST_LEGION, but the config global is BATTALION_501ST).
 		local pos = ply:GetPos()
 		local ang = ply:EyeAngles()
 		local line = string.format(
-			'SWRP.addBattalionSpawn( "%s", BATTALION_%s, Vector( %d, %d, %d ), Angle( 0, %d, 0 ) )',
-			game.GetMap(), string.upper( SWRP.Hierarchy.Slug( battalion.name ) ),
+			'SWRP.addBattalionSpawn( "%s", SWRP.Hierarchy.GetBattalion( "%s" ), Vector( %d, %d, %d ), Angle( 0, %d, 0 ) )',
+			game.GetMap(), battalion.id,
 			pos.x, pos.y, pos.z, ang.yaw )
 
 		Commands.Reply( ply, "Add to swrp_customthings/spawns.lua:" )

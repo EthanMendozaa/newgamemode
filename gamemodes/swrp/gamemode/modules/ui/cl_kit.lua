@@ -29,9 +29,10 @@ local function T() return SWRP.Theme end
 --------------------------------------------------------------------------------
 
 -- Per-panel animated hover fraction (0..1) for smooth transitions.
+-- RealFrameTime: unaffected by host_timescale/pause, the right clock for UI.
 function UI.HoverFrac( panel )
 	local target = panel:IsHovered() and 1 or 0
-	panel._hover = Lerp( FrameTime() * T().kit.hoverSpd, panel._hover or 0, target )
+	panel._hover = Lerp( RealFrameTime() * T().kit.hoverSpd, panel._hover or 0, target )
 	return panel._hover
 end
 

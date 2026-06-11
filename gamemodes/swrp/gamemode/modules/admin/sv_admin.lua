@@ -43,7 +43,15 @@ end
 
 Admin.Ops = {}
 
+-- Targets can disconnect during the async commit; ChatPrint on a gone entity
+-- would error (and a cb error must never stall the record's job queue).
+local function tell( target, msg )
+	if IsValid( target ) then target:ChatPrint( msg ) end
+end
+
 function Admin.Ops.rank( actor, target, rec, value, reply )
+	if not isStaff( actor ) then reply( false, "Staff only" ) return end
+
 	local battalion = Hierarchy.GetBattalion( rec.battalion_id )
 	local rank      = Hierarchy.FindRank( battalion, value )
 	if not rank then
@@ -54,12 +62,14 @@ function Admin.Ops.rank( actor, target, rec, value, reply )
 	rec:Commit( { rank_id = rank.id }, function( err )
 		if err then reply( false, "Database error" ) return end
 		Audit.LogAction( actor, "admin_setrank", rec, { to = rank.id } )
-		target:ChatPrint( "[SWRP] A staff member set your rank to " .. rank.name )
+		tell( target, "[SWRP] A staff member set your rank to " .. rank.name )
 		reply( true, rec.rp_name_base .. " is now " .. rank.name )
 	end )
 end
 
 function Admin.Ops.battalion( actor, target, rec, value, reply )
+	if not isStaff( actor ) then reply( false, "Staff only" ) return end
+
 	local battalion = Hierarchy.FindBattalion( value )
 	if not battalion then
 		reply( false, "Unknown battalion — use its name, tag, or id" )
@@ -72,12 +82,14 @@ function Admin.Ops.battalion( actor, target, rec, value, reply )
 	}, function( err )
 		if err then reply( false, "Database error" ) return end
 		Audit.LogAction( actor, "admin_setbattalion", rec, { to = battalion.id } )
-		target:ChatPrint( "[SWRP] A staff member moved you to the " .. battalion.name )
+		tell( target, "[SWRP] A staff member moved you to the " .. battalion.name )
 		reply( true, rec.rp_name_base .. " moved to " .. battalion.name )
 	end, { respawn = true } )
 end
 
 function Admin.Ops.designation( actor, target, rec, value, reply )
+	if not isStaff( actor ) then reply( false, "Staff only" ) return end
+
 	local digits = Config.Get( "designation_digits", 4 )
 	if #value ~= digits or not string.match( value, "^%d+$" ) then
 		reply( false, "Designation must be exactly " .. digits .. " digits" )
@@ -94,12 +106,14 @@ function Admin.Ops.designation( actor, target, rec, value, reply )
 			return
 		end
 		Audit.LogAction( actor, "admin_setdesignation", rec, { to = value } )
-		target:ChatPrint( "[SWRP] A staff member set your designation to " .. value )
+		tell( target, "[SWRP] A staff member set your designation to " .. value )
 		reply( true, rec.rp_name_base .. " is now designation " .. value )
 	end )
 end
 
 function Admin.Ops.name( actor, target, rec, value, reply )
+	if not isStaff( actor ) then reply( false, "Staff only" ) return end
+
 	if string.Trim( value ) == "" then
 		reply( false, "Give a name" )
 		return
@@ -111,7 +125,7 @@ function Admin.Ops.name( actor, target, rec, value, reply )
 	rec:Commit( { rp_name_base = name }, function( err )
 		if err then reply( false, "Database error" ) return end
 		Audit.LogAction( actor, "admin_setname", rec, { from = old, to = name } )
-		target:ChatPrint( "[SWRP] A staff member renamed you to " .. name )
+		tell( target, "[SWRP] A staff member renamed you to " .. name )
 		reply( true, old .. " renamed to " .. name )
 	end )
 end
@@ -146,7 +160,11 @@ end
 function Admin.SendAudit( ply )
 	if not isStaff( ply ) or not IsValid( ply ) then return end
 
-	DB.Query( "SELECT * FROM swrp_audit ORDER BY at DESC LIMIT 30", function( rows )
+	-- Project only what the tab renders (don't ship SteamID64 columns around).
+	DB.Query( [[
+		SELECT at, server_id, actor_name, action, target_name, detail
+		FROM swrp_audit ORDER BY at DESC LIMIT 30
+	]], function( rows )
 		if not IsValid( ply ) then return end
 		SWRP.Net.Send( "swrp.admin.audit", ply, { rows = rows or {} } )
 	end )
