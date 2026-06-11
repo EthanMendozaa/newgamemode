@@ -436,6 +436,43 @@ hook.Add( "PlayerInitialSpawn", "SWRP.Character.Load", function( ply )
 	Character.Load( ply )
 end )
 
+-- Re-pull an ONLINE record from the DB after another server mutated it
+-- (cross-server sync). No-ops if our copy is already at/past that version.
+-- Identity-affecting changes apply via respawn (invariant 4).
+function Character.ReloadFromDB( id )
+	local rec = records[ id ]
+	if not rec or rec.isBot then return end
+
+	DB.Query( "SELECT * FROM swrp_characters WHERE id = ? LIMIT 1", { id },
+		function( rows, err )
+			if err or not rows or not rows[ 1 ] then return end
+
+			local row = coerceRow( rows[ 1 ] )
+			if row.record_version <= rec.record_version then return end
+
+			local identityChanged =
+				row.battalion_id ~= rec.battalion_id or row.class_id ~= rec.class_id
+
+			rec.rp_name_base   = row.rp_name_base
+			rec.designation    = row.designation
+			rec.battalion_id   = row.battalion_id
+			rec.rank_id        = row.rank_id
+			rec.class_id       = row.class_id
+			rec.flags          = row.flags
+			rec.record_version = row.record_version
+
+			local ply = rec:GetPlayer()
+			if not IsValid( ply ) then return end
+
+			Character.Recompute( ply )
+			if identityChanged and ply:Alive() then ply:Spawn() end
+			SWRP.UI.Notify( ply, true, "Your record was updated" )
+			hook.Run( "SWRP.CharacterSynced", ply, rec )
+
+			log.Info( "synced record %s to v%d", id, row.record_version )
+		end )
+end
+
 --------------------------------------------------------------------------------
 -- Client-ready handshake + designation flow
 --------------------------------------------------------------------------------

@@ -235,9 +235,13 @@ local function resolvedFor( ply )
 	return Class.Resolve( assignment )
 end
 
-hook.Add( "PlayerLoadout", "SWRP.Class.Loadout", function( ply )
+-- Re-equip a player with their resolved class loadout. Used by the spawn
+-- loadout hook and by the armory entity (re-arm without respawn — refills
+-- weapons/ammo only; health/armor stay spawn-time, so it's not a free heal).
+-- Returns true if a class loadout was applied.
+function Class.Equip( ply )
 	local r = resolvedFor( ply )
-	if not r then return end   -- classless (misconfigured battalion): base default
+	if not r then return false end   -- classless (misconfigured battalion)
 
 	ply:StripWeapons()
 	ply:StripAmmo()
@@ -260,7 +264,13 @@ hook.Add( "PlayerLoadout", "SWRP.Class.Loadout", function( ply )
 		end )
 	end
 
-	return true   -- suppress base loadout
+	return true
+end
+
+hook.Add( "PlayerLoadout", "SWRP.Class.Loadout", function( ply )
+	if Class.Equip( ply ) then
+		return true   -- suppress base loadout
+	end
 end )
 
 hook.Add( "PlayerSpawn", "SWRP.Class.Stats", function( ply )

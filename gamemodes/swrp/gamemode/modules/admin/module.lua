@@ -2,12 +2,11 @@
 	Admin — staff tools, separate from the RP hierarchy (plan §3.4: server
 	staff ≠ RP authority).
 
-	Phase 2 ships the record-editing commands (setrank/setbattalion/
-	setdesignation/setname/record) — enough to bootstrap the first officers and
-	test everything. The full suite (log viewer UI, record editor UI) is
-	Phase 4.
+	Record-editing ops behind one gated table, exposed two ways: chat/console
+	commands (!setrank etc.) and the F4 Staff tab (record editor + audit log
+	viewer). Plus swrp_bots for stress testing.
 ------------------------------------------------------------------------------]]
 
 MODULE.Name    = "Admin"
-MODULE.Version = "1.0.0"
-MODULE.Depends = { "hierarchy", "character", "audit" }
+MODULE.Version = "1.1.0"
+MODULE.Depends = { "hierarchy", "character", "audit", "ui" }
