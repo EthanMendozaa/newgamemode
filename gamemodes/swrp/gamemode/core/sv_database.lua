@@ -49,6 +49,10 @@ function DB.SetConfig( cfg ) DB.Config = cfg end
 function DB.IsReady()        return DB.Ready end
 function DB.GetDriver()      return DB.Driver end
 
+-- Explicit SQL NULL for parameter lists: a bare nil can't live in an array
+-- (pairs/# skip it), so callers clearing a column pass DB.NULL instead.
+DB.NULL = {}
+
 --------------------------------------------------------------------------------
 -- Parameter binding
 --------------------------------------------------------------------------------
@@ -68,7 +72,7 @@ local function buildSQL( sqlStr, params )
 	return ( sqlStr:gsub( "?", function()
 		i = i + 1
 		local v = params[ i ]
-		if v == nil      then return "NULL" end
+		if v == nil or v == DB.NULL then return "NULL" end
 		if isnumber( v ) then
 			-- nan/inf would inline as malformed SQL; store NULL instead.
 			if v ~= v or v == math.huge or v == -math.huge then return "NULL" end

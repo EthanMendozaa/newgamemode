@@ -27,5 +27,6 @@ RANKS_CLONE = SWRP.createRankLadder( "Clone", {
 	{ name = "Captain",             tag = "CPT", max = 1, permissions = {
 		can_invite = true, can_promote = true, can_demote = true, can_kick = true,
 		can_manage_classes = true, can_designate_trainers = true,
+		can_offer_lore = true,   -- may offer lore characters (never the commander slot)
 	} },
 } )

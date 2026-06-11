@@ -58,6 +58,11 @@ function Character.GetClassId( ply )
 	return ply:GetNW2String( "SWRPClass", "" )
 end
 
+-- The named-slot id (e.g. "501st_legion/lore/appo"), or "" when none (§3.7).
+function Character.GetLoreId( ply )
+	return ply:GetNW2String( "SWRPLore", "" )
+end
+
 --------------------------------------------------------------------------------
 -- Hierarchy resolver
 --
@@ -71,7 +76,9 @@ Hierarchy.SetResolver( function( ply )
 
 	if SERVER and Character.GetRecord then
 		local rec = Character.GetRecord( ply )
-		if rec then return { battalion_id = rec.battalion_id, rank_id = rec.rank_id } end
+		-- _effRank: the DERIVED rank (virtual commander rank when a lore slot
+		-- forces one) — what permission comparisons must use.
+		if rec then return { battalion_id = rec.battalion_id, rank_id = rec._effRank or rec.rank_id } end
 		return nil
 	end
 

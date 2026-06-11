@@ -35,7 +35,7 @@ function Battalion.SendRoster( ply )
 	local battalionId = arec.battalion_id
 
 	DB.Query( [[
-		SELECT id, rp_name_base, designation, rank_id
+		SELECT id, rp_name_base, designation, rank_id, lore_id
 		FROM swrp_characters WHERE battalion_id = ?
 	]], { battalionId }, function( rows, err )
 		if err or not IsValid( ply ) then return end
@@ -43,12 +43,21 @@ function Battalion.SendRoster( ply )
 		local out, seen = {}, {}
 		for _, r in ipairs( rows or {} ) do
 			seen[ r.id ] = true
+
+			-- Display/gate against the DERIVED rank: lore commanders sit above
+			-- the ladder, not at their stored rank.
+			local rec    = Character.GetRecordById( r.id )
+			local rankId = rec and ( rec._effRank or rec.rank_id ) or r.rank_id
+			if not rec and SWRP.Lore and r.lore_id and r.lore_id ~= "NULL" and r.lore_id ~= "" then
+				rankId = SWRP.Lore.EffectiveRankId( r.lore_id ) or rankId
+			end
+
 			out[ #out + 1 ] = {
 				id          = r.id,
 				name        = r.rp_name_base,
 				designation = ( r.designation ~= "NULL" ) and r.designation or nil,
-				rank_id     = r.rank_id,
-				online      = Character.GetRecordById( r.id ) ~= nil,
+				rank_id     = rankId,
+				online      = rec ~= nil,
 			}
 		end
 
@@ -77,19 +86,29 @@ local function resolveTarget( targetId, cb )
 	local rec = Character.GetRecordById( targetId )
 	if rec then
 		cb( {
-			battalion_id = rec.battalion_id, rank_id = rec.rank_id,
+			-- _effRank: lore commanders sit above the ladder; rank checks must
+			-- see the derived rank, not the stored one.
+			battalion_id = rec.battalion_id, rank_id = rec._effRank or rec.rank_id,
 			name = rec.rp_name_base, id = rec.id, online = true, rec = rec,
 		} )
 		return
 	end
 
 	DB.Query(
-		"SELECT id, rp_name_base, battalion_id, rank_id FROM swrp_characters WHERE id = ? LIMIT 1",
+		"SELECT id, rp_name_base, battalion_id, rank_id, lore_id FROM swrp_characters WHERE id = ? LIMIT 1",
 		{ targetId }, function( rows )
 			local row = rows and rows[ 1 ]
 			if not row then cb( nil ) return end
+
+			-- Offline lore-holders keep their derived rank for authority checks
+			-- (an offline commander must not be kickable by a captain).
+			local rankId = row.rank_id
+			if SWRP.Lore and row.lore_id and row.lore_id ~= "NULL" and row.lore_id ~= "" then
+				rankId = SWRP.Lore.EffectiveRankId( row.lore_id ) or rankId
+			end
+
 			cb( {
-				battalion_id = row.battalion_id, rank_id = row.rank_id,
+				battalion_id = row.battalion_id, rank_id = rankId,
 				name = row.rp_name_base, id = row.id, online = false,
 			} )
 		end )
@@ -99,7 +118,7 @@ end
 -- so the two mutation paths must never drift on this guard.
 local MUTABLE = {
 	rp_name_base = true, designation = true, battalion_id = true,
-	rank_id = true, class_id = true, flags = true,
+	rank_id = true, class_id = true, flags = true, lore_id = true,
 }
 
 local function applyTo( target, fields, respawn, done )

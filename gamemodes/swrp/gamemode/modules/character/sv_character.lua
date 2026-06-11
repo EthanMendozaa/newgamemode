@@ -61,6 +61,12 @@ DB.RegisterMigration( "character", 3, [[
 	ON swrp_characters ( battalion_id, rank_id )
 ]] )
 
+-- Named slots (§3.7): the record's one nullable lore reference. Occupancy
+-- itself lives in swrp_lore_slots (lore module) — this is the fast-path read.
+DB.RegisterMigration( "character", 6, [[
+	ALTER TABLE swrp_characters ADD COLUMN lore_id VARCHAR(96)
+]] )
+
 --------------------------------------------------------------------------------
 -- Record access
 --------------------------------------------------------------------------------
@@ -98,17 +104,18 @@ Character.SanitizeName = sanitizeName
 
 -- Build the formatted display name from the record + config template.
 -- Empty tokens (no designation yet, untagged class) collapse cleanly instead
--- of leaving double spaces.
-local function deriveName( rec, battalion, rank, classTag )
+-- of leaving double spaces. Lore characters replace the whole format and may
+-- replace the {name} token with the lore identity (§3.7).
+local function deriveName( rec, battalion, rank, classTag, loreInfo )
 	local tokens = {
 		battalion   = battalion.tag,
 		rank        = rank.tag,
 		classTag    = classTag or "",
 		designation = rec.designation or "",
-		name        = rec.rp_name_base,
+		name        = ( loreInfo and loreInfo.loreName ) or rec.rp_name_base,
 	}
 
-	local out = Config.Get( "name_format" )
+	local out = ( loreInfo and loreInfo.nameFormat ) or Config.Get( "name_format" )
 	out = string.gsub( out, "{(%w+)}", function( key ) return tokens[ key ] or "" end )
 	out = string.gsub( out, "%s+", " " )
 	return string.Trim( out )
@@ -135,6 +142,17 @@ function Character.SetClassResolver( fn )
 	classResolver = fn
 end
 
+-- The lore module injects this (named slots, §3.7). Runs BEFORE rank/class
+-- derivation; may repair rec.lore_id (slot removed from config / wrong
+-- battalion) and returns nil or:
+-- { rank = rankObj or nil (forced, e.g. virtual commander rank),
+--   nameFormat = string or nil, loreName = string or nil,
+--   model = string or nil, repaired = bool }
+local loreResolver = nil
+function Character.SetLoreResolver( fn )
+	loreResolver = fn
+end
+
 function Character.Recompute( ply )
 	local rec = Character.GetRecord( ply )
 	if not rec then return end
@@ -155,13 +173,21 @@ function Character.Recompute( ply )
 		rec._dirtyRepair = true
 	end
 
-	local rank = Hierarchy.GetRank( rec.rank_id )
-	if not rank or rank.ladder ~= battalion.ladder then
-		rank = Hierarchy.LowestRank( battalion )
-		log.Warn( "record %s had invalid rank '%s' — repaired to '%s'",
-			rec.id, tostring( rec.rank_id ), rank.name )
-		rec.rank_id      = rank.id
-		rec._dirtyRepair = true
+	-- Lore resolution/repair (injected by the lore module). May clear an
+	-- invalid rec.lore_id; may force the rank (commander sits above the ladder).
+	local loreInfo = loreResolver and loreResolver( rec, battalion ) or nil
+	if loreInfo and loreInfo.repaired then rec._dirtyRepair = true end
+
+	local rank = loreInfo and loreInfo.rank or nil
+	if not rank then
+		rank = Hierarchy.GetRank( rec.rank_id )
+		if not rank or rank.ladder ~= battalion.ladder then
+			rank = Hierarchy.LowestRank( battalion )
+			log.Warn( "record %s had invalid rank '%s' — repaired to '%s'",
+				rec.id, tostring( rec.rank_id ), rank.name )
+			rec.rank_id      = rank.id
+			rec._dirtyRepair = true
+		end
 	end
 
 	-- Class resolution/repair (injected by the class module; nil before Phase 3
@@ -176,23 +202,31 @@ function Character.Recompute( ply )
 		rec.record_version = rec.record_version + 1
 		DB.Query( [[
 			UPDATE swrp_characters
-			SET battalion_id = ?, rank_id = ?, class_id = ?, record_version = record_version + 1
+			SET battalion_id = ?, rank_id = ?, class_id = ?, lore_id = ?, record_version = record_version + 1
 			WHERE id = ?
-		]], { rec.battalion_id, rec.rank_id, rec.class_id or "", rec.id } )
+		]], { rec.battalion_id, rec.rank_id, rec.class_id or "", rec.lore_id, rec.id } )
 	end
 
+	-- The rank others must compare against (virtual commander rank when lore
+	-- forces one). Consumed by the Hierarchy resolver + battalion targeting.
+	rec._effRank = rank.id
+
 	-- Derived state -> networked values (the ONLY place these are set).
-	ply:SetNW2String( "SWRPName",        deriveName( rec, battalion, rank, classInfo and classInfo.tag ) )
+	ply:SetNW2String( "SWRPName",        deriveName( rec, battalion, rank, classInfo and classInfo.tag, loreInfo ) )
 	ply:SetNW2String( "SWRPBattalion",   battalion.id )
 	ply:SetNW2String( "SWRPRank",        rank.id )
 	ply:SetNW2String( "SWRPDesignation", rec.designation or "" )
 	ply:SetNW2String( "SWRPClass",       rec.class_id or "" )
+	ply:SetNW2String( "SWRPLore",        rec.lore_id or "" )
 
 	-- Model applies on (re)spawn via the PlayerSetModel hook below; identity
 	-- changes respawn the player (invariant 4). The live SetModel below covers
 	-- ONLY the initial record load (player already spawned before the async DB
 	-- round-trip finished) — never later mutations, which all respawn.
-	rec._model = ( classInfo and classInfo.model ) or pickModel( rec, battalion )
+	-- Precedence: lore > class assignment > battalion base (§3.7).
+	rec._model = ( loreInfo and loreInfo.model )
+		or ( classInfo and classInfo.model )
+		or pickModel( rec, battalion )
 	if rec._model and not rec._modelApplied then
 		rec._modelApplied = true
 		if ply:Alive() and ply:GetModel() ~= rec._model then
@@ -221,7 +255,7 @@ REC_META.__index = REC_META
 -- Whitelisted mutable columns — keys end up interpolated into SQL.
 local ALLOWED_FIELDS = {
 	rp_name_base = true, designation = true, battalion_id = true,
-	rank_id = true, class_id = true, flags = true,
+	rank_id = true, class_id = true, flags = true, lore_id = true,
 }
 
 -- One queued commit. `done` MUST be called exactly once on every path so the
@@ -229,7 +263,11 @@ local ALLOWED_FIELDS = {
 -- cb can never stall the queue.
 local function performCommit( rec, fields, cb, opts, done )
 	local function apply()
-		for k, v in pairs( fields ) do rec[ k ] = v end
+		-- DB.NULL is the "clear this column" sentinel (a bare nil can't sit in
+		-- a fields table); in memory it becomes a real nil.
+		for k, v in pairs( fields ) do
+			rec[ k ] = ( v ~= DB.NULL ) and v or nil
+		end
 		rec.record_version = rec.record_version + 1
 
 		local ply = rec:GetPlayer()
@@ -336,6 +374,7 @@ local function coerceRow( row )
 	row.record_version = tonumber( row.record_version ) or 1
 	row.flags          = util.JSONToTable( row.flags or "{}" ) or {}
 	if row.designation == "NULL" then row.designation = nil end
+	if row.lore_id == "NULL" or row.lore_id == "" then row.lore_id = nil end
 	return row
 end
 
@@ -477,13 +516,16 @@ function Character.ReloadFromDB( id )
 				if row.record_version <= rec.record_version then done() return end
 
 				local identityChanged =
-					row.battalion_id ~= rec.battalion_id or row.class_id ~= rec.class_id
+					row.battalion_id ~= rec.battalion_id
+					or row.class_id ~= rec.class_id
+					or row.lore_id ~= rec.lore_id
 
 				rec.rp_name_base   = row.rp_name_base
 				rec.designation    = row.designation
 				rec.battalion_id   = row.battalion_id
 				rec.rank_id        = row.rank_id
 				rec.class_id       = row.class_id
+				rec.lore_id        = row.lore_id
 				rec.flags          = row.flags
 				rec.record_version = row.record_version
 

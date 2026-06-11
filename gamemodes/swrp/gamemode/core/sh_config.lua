@@ -248,7 +248,7 @@ local CUSTOM_DIR = "swrp_customthings"
 -- Definition dependency order: battalions reference ladders + class templates
 -- (defaultClass); assignments reference classes AND battalions. Files not
 -- listed load alphabetically afterwards.
-local CUSTOM_ORDER = { "ranks.lua", "classes.lua", "battalions.lua", "assignments.lua" }
+local CUSTOM_ORDER = { "ranks.lua", "classes.lua", "battalions.lua", "assignments.lua", "lore.lua" }
 
 local function includeCustomFile( path )
 	if SERVER then AddCSLuaFile( path ) end

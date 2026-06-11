@@ -235,9 +235,22 @@ end
 -- Spawn application: loadout + stats
 --------------------------------------------------------------------------------
 
+-- The lore module injects this (§3.7 precedence: lore > class assignment).
+-- fn( rec ) -> resolved loadout table { weapons, ammo, health, armor } or nil.
+local loadoutOverride = nil
+function Class.SetLoadoutOverride( fn )
+	loadoutOverride = fn
+end
+
 local function resolvedFor( ply )
 	local rec = Character.GetRecord( ply )
 	if not rec then return nil end
+
+	if loadoutOverride then
+		local r = loadoutOverride( rec )
+		if r then return r end
+	end
+
 	local assignment = Class.Assignments[ rec.class_id or "" ]
 	if not assignment then return nil end
 	return Class.Resolve( assignment )
