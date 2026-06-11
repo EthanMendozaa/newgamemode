@@ -63,6 +63,14 @@ function Character.GetLoreId( ply )
 	return ply:GetNW2String( "SWRPLore", "" )
 end
 
+-- Total service time in seconds (stored + live session).
+function Character.GetServiceTime( ply )
+	local stored = ply:GetNW2Int( "SWRPPlaytime", 0 )
+	local joined = ply:GetNW2Int( "SWRPJoinedAt", 0 )
+	if joined <= 0 then return stored end
+	return stored + math.max( 0, os.time() - joined )
+end
+
 --------------------------------------------------------------------------------
 -- Hierarchy resolver
 --
@@ -125,6 +133,32 @@ SWRP.Net.Register( "swrp.character.designation_claim", {
 	},
 	onReceive = function( ply, data )
 		if SERVER then Character.ClaimDesignation( ply, data.designation ) end
+	end,
+} )
+
+-- Live availability check while typing in the picker (server-authoritative;
+-- the claim itself is still arbitrated by the UNIQUE index).
+SWRP.Net.Register( "swrp.character.designation_check", {
+	from      = "client",
+	rateLimit = { times = 20, seconds = 10 },
+	schema    = {
+		{ name = "designation", type = "string", max = 8 },
+	},
+	onReceive = function( ply, data )
+		if SERVER then Character.CheckDesignation( ply, data.designation ) end
+	end,
+} )
+
+SWRP.Net.Register( "swrp.character.designation_free", {
+	from   = "server",
+	schema = {
+		{ name = "designation", type = "string", max = 8 },
+		{ name = "free",        type = "bool" },
+	},
+	onReceive = function( _, data )
+		if CLIENT and Character.OnDesignationCheck then
+			Character.OnDesignationCheck( data.designation, data.free )
+		end
 	end,
 } )
 

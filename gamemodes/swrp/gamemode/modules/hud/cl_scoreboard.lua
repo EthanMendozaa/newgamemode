@@ -1,91 +1,141 @@
 --[[----------------------------------------------------------------------------
-	HUD module (client) — scoreboard.
+	HUD module (client) — scoreboard (v4, approved).
 
-	Minimal pre-UI-kit scoreboard: every row renders the DERIVED identity
-	(name, battalion, rank) straight from the record's networked values —
-	nothing comes from Steam names or teams. Rebuilt on the UI kit in Phase 2.
+	Top-anchored wide bar (the GMod-native pattern), server band up top, rows
+	grouped under battalion bands with avatars and derived identity. Identity
+	resolves once per rebuild (every 2s), never per paint frame.
 ------------------------------------------------------------------------------]]
 
 local Character = SWRP.Character
+local Hierarchy = SWRP.Hierarchy
+local UI        = SWRP.UI
 
 local board = nil
 
 local function buildRows( list )
 	list:Clear()
 
-	local players = player.GetAll()
-	table.sort( players, function( a, b )
-		local ba = a:GetNW2String( "SWRPBattalion", "" )
-		local bb = b:GetNW2String( "SWRPBattalion", "" )
-		if ba ~= bb then return ba < bb end
-		return Character.GetName( a ) < Character.GetName( b )
-	end )
+	local theme = SWRP.Theme
+	local C     = theme.colors
 
-	local T = SWRP.Theme
-
-	for _, ply in ipairs( players ) do
-		-- Identity is resolved ONCE per rebuild (every 2s), not per paint frame
-		-- — only ping is read live.
-		local battalion = Character.GetBattalion( ply )
-		local rank      = Character.GetRank( ply )
-		local name      = Character.GetName( ply )
-		local batName   = battalion and battalion.name or "—"
-		local rankName  = rank and rank.name or "—"
-		local batColor  = battalion and battalion.color or T.colors.textDim
-
-		local row = vgui.Create( "DPanel" )
-		row:SetTall( T.spacing.rowH )
-		row:Dock( TOP )
-		row:DockMargin( 0, 0, 0, 2 )
-
-		row.Paint = function( self, w, h )
-			if not IsValid( ply ) then return end
-			local C = T.colors
-
-			draw.RoundedBox( 4, 0, 0, w, h, C.bgLight )
-			draw.RoundedBox( 0, 0, 0, 4, h, batColor )
-
-			draw.SimpleText( name, "SWRP.Sub",
-				12, h / 2, C.text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
-
-			draw.SimpleText( batName, "SWRP.Small",
-				w * 0.55, h / 2, batColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
-
-			draw.SimpleText( rankName, "SWRP.Small",
-				w * 0.78, h / 2, C.textDim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
-
-			draw.SimpleText( ply:Ping(), "SWRP.Small",
-				w - 12, h / 2, C.textDim, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER )
+	-- Group players by battalion id.
+	local groups, order = {}, {}
+	for _, ply in ipairs( player.GetAll() ) do
+		local b   = Character.GetBattalion( ply )
+		local id  = b and b.id or "~none"
+		if not groups[ id ] then
+			groups[ id ] = { battalion = b, players = {} }
+			order[ #order + 1 ] = id
 		end
+		table.insert( groups[ id ].players, ply )
+	end
+	table.sort( order )
 
-		list:AddItem( row )
+	for _, id in ipairs( order ) do
+		local group     = groups[ id ]
+		local battalion = group.battalion
+
+		-- Battalion band
+		local band = vgui.Create( "DPanel" )
+		band:SetTall( 30 )
+		band:Dock( TOP )
+		band.Paint = function( self, w, h )
+			surface.SetDrawColor( C.termBot )
+			surface.DrawRect( 0, 0, w, h )
+			surface.SetDrawColor( battalion and battalion.color or C.textDim )
+			surface.DrawRect( 14, h / 2 - 5, 4, 10 )
+			draw.SimpleText(
+				string.upper( battalion and battalion.name or "UNKNOWN" )
+				.. "  —  " .. #group.players,
+				"SWRP.Label", 28, h / 2, C.accentSub,
+				TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+		end
+		list:AddItem( band )
+
+		-- Rows: rank-descending within the battalion
+		table.sort( group.players, function( a, b )
+			local ra = Character.GetRank( a )
+			local rb = Character.GetRank( b )
+			local ia = ra and ra.index or 0
+			local ib = rb and rb.index or 0
+			if ia ~= ib then return ia > ib end
+			return Character.GetName( a ) < Character.GetName( b )
+		end )
+
+		for _, ply in ipairs( group.players ) do
+			-- Resolve identity ONCE per rebuild.
+			local name     = Character.GetName( ply )
+			local rank     = Character.GetRank( ply )
+			local rankName = rank and rank.name or "—"
+			local desig    = Character.GetDesignation( ply )
+			local gold     = rank and rank.virtual
+			local batColor = Character.GetColor( ply )
+
+			local row = vgui.Create( "DPanel" )
+			row:SetTall( 40 )
+			row:Dock( TOP )
+
+			local av = UI.Avatar( row, ply, 26 )
+			av:SetPos( 16, 7 )
+
+			row.Paint = function( self, w, h )
+				if not IsValid( ply ) then return end
+
+				draw.SimpleText( name, "SWRP.Sub", 56, h / 2,
+					gold and C.gold or batColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+				draw.SimpleText( rankName, "SWRP.Small", w * 0.52, h / 2, C.textDim,
+					TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+				draw.SimpleText( desig ~= "" and desig or "—", "SWRP.Small", w * 0.74, h / 2,
+					C.textDim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+				draw.SimpleText( ply:Ping(), "SWRP.Small", w - 16, h / 2, C.label,
+					TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER )
+
+				surface.SetDrawColor( C.hairline )
+				surface.DrawRect( 14, h - 1, w - 28, 1 )
+			end
+
+			list:AddItem( row )
+		end
 	end
 end
 
 hook.Add( "ScoreboardShow", "SWRP.HUD.Scoreboard", function()
-	local T = SWRP.Theme
-	local C = T.colors
+	local theme = SWRP.Theme
+	local C     = theme.colors
 
 	if IsValid( board ) then board:Remove() end
 
-	board = vgui.Create( "DFrame" )
-	board:SetSize( math.min( 700, ScrW() * 0.6 ), math.min( 600, ScrH() * 0.7 ) )
-	board:Center()
-	board:SetTitle( "" )
-	board:SetDraggable( false )
-	board:ShowCloseButton( false )
+	local w = math.Clamp( ScrW() * 0.46, 640, 880 )
 
-	board.Paint = function( self, w, h )
-		draw.RoundedBox( 8, 0, 0, w, h, C.bg )
-		draw.SimpleText( GetHostName(), "SWRP.Name", w / 2, 14, C.text,
-			TEXT_ALIGN_CENTER )
-		draw.SimpleText( #player.GetAll() .. " personnel online", "SWRP.Small",
-			w / 2, 38, C.textDim, TEXT_ALIGN_CENTER )
+	board = vgui.Create( "DPanel" )
+	board:SetSize( w, math.min( ScrH() * 0.72, 760 ) )
+	board:SetPos( ( ScrW() - w ) / 2, theme.spacing.margin * 2 )
+
+	board.Paint = function( self, pw, ph )
+		UI.DrawBlur( self, theme.kit.blur )
+		draw.RoundedBox( theme.kit.radius, 0, 0, pw, ph, C.bg )
+
+		-- Server band
+		draw.RoundedBoxEx( theme.kit.radius, 0, 0, pw, 54, C.titleBar, true, true, false, false )
+		surface.SetDrawColor( C.accent )
+		surface.DrawRect( 0, 52, pw, 2 )
+		draw.SimpleText( string.upper( GetHostName() ), "SWRP.Title", 16, 27 - 1, C.text,
+			TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+		draw.SimpleText( game.GetMap() .. "  ·  " .. #player.GetAll() .. " personnel",
+			"SWRP.Small", pw - 16, 27, C.textDim, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER )
 	end
 
 	local list = vgui.Create( "DScrollPanel", board )
 	list:Dock( FILL )
-	list:DockMargin( T.spacing.pad, 56, T.spacing.pad, T.spacing.pad )
+	list:DockMargin( 0, 60, 0, 8 )
+
+	local sbar = list:GetVBar()
+	sbar:SetWide( 6 )
+	sbar.Paint = nil
+	sbar.btnUp.Paint, sbar.btnDown.Paint = nil, nil
+	sbar.btnGrip.Paint = function( self, sw, sh )
+		draw.RoundedBox( 3, 0, 0, sw, sh, C.bgRaised )
+	end
 
 	buildRows( list )
 
@@ -107,6 +157,4 @@ hook.Add( "ScoreboardHide", "SWRP.HUD.ScoreboardHide", function()
 		board:Remove()
 		board = nil
 	end
-	-- No return value: ScoreboardHide has no documented return semantics, and
-	-- the base scoreboard was never shown anyway.
 end )

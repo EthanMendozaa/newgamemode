@@ -218,6 +218,9 @@ function Character.Recompute( ply )
 	ply:SetNW2String( "SWRPDesignation", rec.designation or "" )
 	ply:SetNW2String( "SWRPClass",       rec.class_id or "" )
 	ply:SetNW2String( "SWRPLore",        rec.lore_id or "" )
+	-- Stored playtime + session start, so clients render live service time.
+	ply:SetNW2Int( "SWRPPlaytime", rec.playtime or 0 )
+	ply:SetNW2Int( "SWRPJoinedAt", rec._joinedAt or os.time() )
 
 	-- Model applies on (re)spawn via the PlayerSetModel hook below; identity
 	-- changes respawn the player (invariant 4). The live SetModel below covers
@@ -571,6 +574,21 @@ hook.Add( "SWRP.CharacterLoaded", "SWRP.Character.ReadyBridge", function( ply, r
 		if not rec.designation then Character.PromptDesignation( ply ) end
 	end
 end )
+
+-- Live picker feedback: is this designation currently unclaimed?
+function Character.CheckDesignation( ply, designation )
+	local digits = Config.Get( "designation_digits", 4 )
+	if #designation ~= digits or not string.match( designation, "^%d+$" ) then return end
+
+	DB.Query( "SELECT 1 FROM swrp_characters WHERE designation = ? LIMIT 1",
+		{ designation }, function( rows )
+			if not IsValid( ply ) then return end
+			SWRP.Net.Send( "swrp.character.designation_free", ply, {
+				designation = designation,
+				free        = not ( rows and rows[ 1 ] ),
+			} )
+		end )
+end
 
 function Character.ClaimDesignation( ply, designation )
 	local rec = Character.GetRecord( ply )

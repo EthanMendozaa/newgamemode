@@ -1,46 +1,46 @@
 --[[----------------------------------------------------------------------------
-	Class module (client) — the Classes menu tab.
+	Class module (client) — the Classes terminal tab (v4).
 
-	Openable anywhere (plan §3.6): lists the battalion's classes with LIVE
-	eligibility and greyed-out reasons straight from the server payload.
-	Switching shows the respawn confirmation (config-driven) and sends an
-	intent; the server re-validates everything.
+	Large model cards, one verb per card ("BECOME MEDIC"), locked classes stay
+	quiet (dim + reason in the CTA slot). Eligibility comes from the server
+	payload; the switch is re-validated server-side.
 ------------------------------------------------------------------------------]]
 
 local Class = SWRP.Class
 local UI    = SWRP.UI
 
 local state = {
-	data = nil,    -- last payload
-	tbl  = nil,    -- live table widget
+	data = nil,
+	grid = nil,
 }
 
 local function rebuild()
-	if not ( state.tbl and IsValid( state.tbl.wrap ) ) or not state.data then return end
+	if not ( IsValid( state.grid ) and state.data ) then return end
 
-	local theme = SWRP.Theme
-	local data  = state.data
+	state.grid:Clear()
 
-	state.tbl:Clear()
+	local data = state.data
 
 	for _, c in ipairs( data.classes ) do
-		local current = ( c.id == data.current )
-
-		local slots = "—"
-		if c.max then slots = ( c.used or 0 ) .. " / " .. c.max end
-
-		local status
-		if current then
-			status = "Current class"
-		elseif c.eligible then
-			status = c.minRank and ( c.minRank .. "+" ) or "Available"
-		else
-			status = c.reason
+		-- Model thumb from the shared registry (assignment -> resolved models).
+		local model = nil
+		local a = Class.GetAssignment( c.id )
+		if a then
+			local models = Class.Resolve( a ).models
+			model = models and models[ 1 ]
 		end
 
-		local buttons = {}
-		if not current and c.eligible then
-			buttons[ #buttons + 1 ] = { label = "Use", variant = "primary", width = 52, onClick = function()
+		local card = UI.ClassCard( state.grid, {
+			name     = c.name,
+			health   = c.health,
+			armor    = c.armor,
+			max      = c.max,
+			used     = c.used,
+			current  = ( c.id == data.current ),
+			eligible = c.eligible,
+			reason   = c.reason,
+			model    = model,
+			onUse    = function()
 				local function send()
 					SWRP.Net.Send( "swrp.class.switch", { id = c.id } )
 				end
@@ -50,19 +50,12 @@ local function rebuild()
 				else
 					send()
 				end
-			end }
-		end
-
-		state.tbl:AddRow( {
-			c.name .. ( c.tag and ( "  [" .. c.tag .. "]" ) or "" ),
-			c.health .. " HP / " .. c.armor .. " AR",
-			slots,
-			status,
-		}, {
-			color   = current and theme.colors.gold or ( c.eligible and theme.colors.accent or nil ),
-			dim     = not c.eligible and not current,
-			buttons = buttons,
+			end,
 		} )
+
+		card:Dock( LEFT )
+		card:SetWide( math.floor( ( ScrW() - SWRP.Theme.spacing.termX * 2 ) / 4 ) - 22 )
+		card:DockMargin( 0, 0, 22, 0 )
 	end
 end
 
@@ -77,31 +70,24 @@ UI.RegisterMenuTab( {
 	order = 30,
 	build = function( panel )
 		local theme = SWRP.Theme
+		local C     = theme.colors
 
-		local top = vgui.Create( "DPanel", panel )
-		top:Dock( TOP )
-		top:SetTall( theme.kit.btnH )
-		top:DockMargin( 0, 0, 0, theme.spacing.pad )
-		top.Paint = nil
+		local head = vgui.Create( "DPanel", panel )
+		head:Dock( TOP )
+		head:SetTall( 40 )
+		head:DockMargin( 0, 0, 0, 16 )
+		head.Paint = function( self, w, h )
+			draw.SimpleText( "COMBAT LOADOUT", "SWRP.H2", 0, h / 2 - 1, C.text,
+				TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+			draw.SimpleText( "SWITCHING RESPAWNS YOU  ·  SLOTS FREE ON DISCONNECT",
+				"SWRP.Label", 246, h / 2, C.label, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+		end
 
-		local hint = vgui.Create( "DLabel", top )
-		hint:SetFont( "SWRP.Sub" )
-		hint:SetTextColor( theme.colors.textDim )
-		hint:SetText( "Switching class respawns you. Gold = current." )
-		hint:Dock( FILL )
-
-		local refresh = UI.Button( top, "Refresh", "ghost", function()
-			SWRP.Net.Send( "swrp.class.state_request", {} )
-		end )
-		refresh:Dock( RIGHT )
-		refresh:SetWide( 90 )
-
-		state.tbl = UI.Table( panel, {
-			{ name = "Class",  frac = 0.34 },
-			{ name = "Stats",  frac = 0.20 },
-			{ name = "Slots",  frac = 0.14 },
-			{ name = "Status", frac = 0.32 },
-		} )
+		local grid = vgui.Create( "DPanel", panel )
+		grid:Dock( FILL )
+		grid:DockPadding( 0, 0, 0, math.floor( ScrH() * 0.06 ) )
+		grid.Paint = nil
+		state.grid = grid
 
 		rebuild()
 		SWRP.Net.Send( "swrp.class.state_request", {} )

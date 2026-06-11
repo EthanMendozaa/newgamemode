@@ -33,7 +33,7 @@ local function showNext()
 	local K, S  = theme.kit, theme.spacing
 	local data  = current
 
-	local w, h = K.popupW, 118
+	local w, h = K.popupW, 134
 	local p = vgui.Create( "DPanel" )
 	p:SetSize( w, h )
 	p:SetPos( ScrW() - w - S.margin, ScrH() - h - S.margin - 110 )
@@ -46,10 +46,18 @@ local function showNext()
 		draw.RoundedBox( K.radius, 0, 0, pw, ph, C.bg )
 		surface.SetDrawColor( C.gold )
 		surface.DrawRect( 0, 0, K.accentW, ph )
+
+		-- "DECISION NEEDED · 24S" header (v4, approved)
+		local headline = "DECISION NEEDED"
+		if deadline then
+			headline = headline .. " · " .. math.max( 0, math.ceil( deadline - RealTime() ) ) .. "S"
+		end
+		draw.SimpleText( headline, "SWRP.Label", K.accentW + 10, 9, C.gold )
+
 		draw.SimpleText( string.upper( data.title or "Request" ), "SWRP.Title",
-			K.accentW + 10, 10, C.text )
+			K.accentW + 10, 26, C.text )
 		draw.SimpleText( data.text or "", "SWRP.Small",
-			K.accentW + 10, 34, C.textDim )
+			K.accentW + 10, 50, C.textDim )
 	end
 
 	local function resolve( fn )
@@ -64,7 +72,7 @@ local function showNext()
 		bar = UI.Bar( p )
 		bar:SetColor( theme.colors.gold )
 		bar:SetSize( w - K.accentW - 20, 5 )
-		bar:SetPos( K.accentW + 10, 56 )
+		bar:SetPos( K.accentW + 10, 72 )
 
 		p.Think = function()
 			local left = deadline - RealTime()

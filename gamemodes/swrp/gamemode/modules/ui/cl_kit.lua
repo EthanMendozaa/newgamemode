@@ -445,3 +445,300 @@ function UI.TextEntry( parent )
 
 	return entry
 end
+
+--------------------------------------------------------------------------------
+-- v4 "Republic Terminal" components
+--------------------------------------------------------------------------------
+
+--[[
+	UI.Terminal() — the full-screen shell every main page lives in.
+	Returns t with:
+	  t:AddTab( name, build )   -- caps nav tab; first added auto-selects
+	  t.Content                 -- the padded workspace panel
+	  t:Close()
+	ESC (game menu key) closes it; F4 toggling is handled by the menu opener.
+]]
+function UI.Terminal()
+	local theme = T()
+	local K, S  = theme.kit, theme.spacing
+
+	local t = vgui.Create( "DFrame" )
+	t:SetSize( ScrW(), ScrH() )
+	t:SetPos( 0, 0 )
+	t:SetTitle( "" )
+	t:SetDraggable( false )
+	t:ShowCloseButton( false )
+	t:MakePopup()
+
+	t.Paint = function( self, w, h )
+		local C = T().colors
+		UI.DrawBlur( self, T().kit.blur )
+		-- Two-tone translucent terminal layer (flat, no gradient cost)
+		surface.SetDrawColor( C.termTop )
+		surface.DrawRect( 0, 0, w, math.floor( h * 0.45 ) )
+		surface.SetDrawColor( C.termBot )
+		surface.DrawRect( 0, math.floor( h * 0.45 ), w, h )
+	end
+
+	-- ESC closes the terminal instead of opening the game menu.
+	t.Think = function( self )
+		if gui.IsGameUIVisible() then
+			gui.HideGameUI()
+			self:Close()
+		end
+	end
+
+	-- Nav strip -----------------------------------------------------------
+	local nav = vgui.Create( "DPanel", t )
+	nav:Dock( TOP )
+	nav:SetTall( K.navH )
+	nav:DockPadding( S.termX, 14, S.termX, 0 )
+	nav.Paint = function( self, w, h )
+		local C = T().colors
+		draw.SimpleText( "SWRP", "SWRP.H2", S.termX, h / 2 - 12, C.text )
+		draw.SimpleText( "GRAND ARMY COMMAND", "SWRP.Label", S.termX, h / 2 + 12, C.label )
+		draw.SimpleText( "F4 / ESC", "SWRP.Label", w - S.termX, h / 2, C.label,
+			TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER )
+		surface.SetDrawColor( C.hairline )
+		surface.DrawRect( S.termX, h - 1, w - S.termX * 2, 1 )
+	end
+
+	local tabBar = vgui.Create( "DPanel", nav )
+	tabBar:Dock( FILL )
+	tabBar:DockMargin( 130, 0, 90, 0 )
+	tabBar.Paint = nil
+
+	local content = vgui.Create( "DPanel", t )
+	content:Dock( FILL )
+	content:DockPadding( S.termX, S.termY, S.termX, S.termY )
+	content.Paint = nil
+	t.Content = content
+
+	t._tabs, t._active = {}, nil
+
+	function t:Select( name )
+		self._active = name
+		self.Content:Clear()
+		local tab = self._tabs[ name ]
+		if tab then tab.build( self.Content ) end
+	end
+
+	function t:AddTab( name, build )
+		local label = string.upper( name )
+
+		surface.SetFont( "SWRP.Nav" )
+		local textW = surface.GetTextSize( label )
+
+		local b = vgui.Create( "DButton", tabBar )
+		b:SetText( "" )
+		b:Dock( LEFT )
+		b:SetWide( textW + 34 )
+		b:SetCursor( "hand" )
+
+		b.Paint = function( self, w, h )
+			local C  = T().colors
+			local on = ( t._active == name )
+			local hf = UI.HoverFrac( self )
+			draw.SimpleText( label, "SWRP.Nav", w / 2, h / 2,
+				on and C.white or UI.Blend( C.textDim, C.text, hf ),
+				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+			if on then
+				surface.SetDrawColor( C.accent )
+				surface.DrawRect( 10, h - 3, w - 20, 2 )
+			end
+		end
+		b.DoClick = function() t:Select( name ) end
+
+		self._tabs[ name ] = { build = build, button = b }
+		if not self._active then self:Select( name ) end
+	end
+
+	return t
+end
+
+-- Styled right-click menu. items = { { label=, danger=, onClick= }, ... }
+function UI.ContextMenu( items )
+	local menu = DermaMenu()
+	menu.Paint = function( self, w, h )
+		local C = T().colors
+		draw.RoundedBox( T().kit.radius, 0, 0, w, h, C.bg )
+		surface.SetDrawColor( C.divider )
+		surface.DrawOutlinedRect( 0, 0, w, h, 1 )
+	end
+
+	for _, item in ipairs( items ) do
+		local opt = menu:AddOption( item.label, item.onClick )
+		opt:SetTall( 34 )
+		opt:SetTextInset( 14, 0 )
+		opt:SetFont( "SWRP.Sub" )
+		opt.Paint = function( self, w, h )
+			local C = T().colors
+			if self:IsHovered() then
+				surface.SetDrawColor( C.bgRaised )
+				surface.DrawRect( 1, 0, w - 2, h )
+			end
+			self:SetTextColor( item.danger and C.dangerTx or C.textBlue )
+		end
+	end
+
+	menu:Open()
+	return menu
+end
+
+-- Hairline fact row (the v4 box-less look): label left, value right of it.
+function UI.FactRow( parent, label, value, valueColor )
+	local theme = T()
+
+	local row = vgui.Create( "DPanel", parent )
+	row:Dock( TOP )
+	row:SetTall( theme.spacing.factH )
+
+	row.Paint = function( self, w, h )
+		local C = T().colors
+		draw.SimpleText( string.upper( label ), "SWRP.Label", 0, h / 2, C.label,
+			TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+		draw.SimpleText( tostring( value or "—" ), "SWRP.Fact", 190, h / 2,
+			valueColor or C.text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+		surface.SetDrawColor( C.hairline )
+		surface.DrawRect( 0, h - 1, w, 1 )
+	end
+
+	function row:SetValue( v, col )
+		value, valueColor = v, col or valueColor
+	end
+
+	return row
+end
+
+-- Steam avatar with rounded backing; bots/unknown get an initials disc.
+-- `who` is a Player, or a string used for initials.
+function UI.Avatar( parent, who, size )
+	size = size or T().kit.avatar
+
+	local wrap = vgui.Create( "DPanel", parent )
+	wrap:SetSize( size, size )
+
+	local isPlayer = IsValid( who ) and who.IsPlayer and who:IsPlayer()
+
+	if isPlayer and not who:IsBot() then
+		wrap.Paint = nil
+		local img = vgui.Create( "AvatarImage", wrap )
+		img:Dock( FILL )
+		img:SetPlayer( who, size > 32 and 64 or 32 )
+	else
+		local name = isPlayer and who:Nick() or tostring( who or "?" )
+		local init = string.upper( string.sub( name, 1, 2 ) )
+		wrap.Paint = function( self, w, h )
+			local C = T().colors
+			draw.RoundedBox( w / 2, 0, 0, w, h, C.bgRaised )
+			draw.SimpleText( init, "SWRP.Label", w / 2, h / 2, C.textBlue,
+				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		end
+	end
+
+	return wrap
+end
+
+-- Posed model viewer (character tab, class cards). Returns the DModelPanel.
+function UI.ModelView( parent, model )
+	local mdl = vgui.Create( "DModelPanel", parent )
+	mdl:SetModel( model or "models/player/group01/male_02.mdl" )
+	mdl:SetFOV( 36 )
+	mdl:SetCamPos( Vector( 78, 6, 46 ) )
+	mdl:SetLookAt( Vector( 0, 0, 40 ) )
+	mdl:SetAnimated( false )
+
+	function mdl:LayoutEntity( ent )
+		ent:SetAngles( Angle( 0, 32 + math.sin( RealTime() * 0.4 ) * 14, 0 ) )
+	end
+
+	mdl.PaintOver = function() end
+	return mdl
+end
+
+--[[
+	Class card (v4): big model thumb on top, name + stats, one CTA bar.
+	data = { name, tag, health, armor, max, used, eligible, reason, current,
+	         model, onUse }
+]]
+function UI.ClassCard( parent, data )
+	local theme = T()
+
+	local card = vgui.Create( "DPanel", parent )
+	card:SetAlpha( ( data.eligible or data.current ) and 255 or 150 )
+
+	card.Paint = function( self, w, h )
+		local C, K = T().colors, T().kit
+		draw.RoundedBox( K.radius, 0, 0, w, h, C.bgLight )
+		surface.SetDrawColor( data.current and C.gold or C.divider )
+		surface.DrawOutlinedRect( 0, 0, w, h, 1 )
+	end
+
+	local thumb = vgui.Create( "DPanel", card )
+	thumb:Dock( FILL )
+	thumb:DockMargin( 1, 1, 1, 0 )
+	thumb.Paint = function( self, w, h )
+		surface.SetDrawColor( T().colors.modelBg )
+		surface.DrawRect( 0, 0, w, h )
+	end
+
+	if data.model then
+		local mdl = UI.ModelView( thumb, data.model )
+		mdl:Dock( FILL )
+		mdl:SetCamPos( Vector( 64, 4, 42 ) )
+	end
+
+	local info = vgui.Create( "DPanel", card )
+	info:Dock( BOTTOM )
+	info:SetTall( 96 )
+	info.Paint = function( self, w, h )
+		local C = T().colors
+		local title = string.upper( data.name )
+		draw.SimpleText( title, "SWRP.Name", 16, 14, C.text )
+
+		local x = 16
+		local function stat( label, v )
+			draw.SimpleText( label .. " ", "SWRP.Label", x, 44, C.label )
+			surface.SetFont( "SWRP.Label" )
+			local lw = surface.GetTextSize( label .. " " )
+			draw.SimpleText( tostring( v ), "SWRP.Small", x + lw, 42, C.textBlue )
+			x = x + lw + 46
+		end
+		stat( "HP", data.health )
+		stat( "ARMOR", data.armor )
+		if data.max then stat( "SLOTS", ( data.used or 0 ) .. "/" .. data.max ) end
+	end
+
+	local cta = vgui.Create( "DButton", info )
+	cta:SetText( "" )
+	cta:Dock( BOTTOM )
+	cta:SetTall( 34 )
+	cta:DockMargin( 14, 0, 14, 12 )
+
+	cta.Paint = function( self, w, h )
+		local C, K = T().colors, T().kit
+		if data.current then
+			surface.SetDrawColor( C.gold )
+			surface.DrawOutlinedRect( 0, 0, w, h, 1 )
+			draw.SimpleText( "CURRENT CLASS", "SWRP.Button", w / 2, h / 2, C.gold,
+				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		elseif data.eligible then
+			local hf = UI.HoverFrac( self )
+			draw.RoundedBox( K.radius, 0, 0, w, h, UI.Blend( C.accent, C.accentHi, hf ) )
+			draw.SimpleText( "BECOME " .. string.upper( data.name ), "SWRP.Button",
+				w / 2, h / 2, C.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		else
+			surface.SetDrawColor( C.divider )
+			surface.DrawOutlinedRect( 0, 0, w, h, 1 )
+			draw.SimpleText( string.upper( data.reason or "Unavailable" ), "SWRP.Label",
+				w / 2, h / 2, C.label, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		end
+	end
+
+	cta.DoClick = function()
+		if not data.current and data.eligible and data.onUse then data.onUse() end
+	end
+	if data.eligible and not data.current then cta:SetCursor( "hand" ) end
+
+	return card
+end

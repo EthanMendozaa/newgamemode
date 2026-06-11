@@ -31,11 +31,26 @@ hook.Add( "HUDPaint", "SWRP.HUD.Overhead", function()
 				if not tr.Hit then
 					local pos = ( target + Vector( 0, 0, T.overhead.height ) ):ToScreen()
 					if pos.visible then
+						-- Name + a quiet rank · battalion subline (v4, approved).
+						local rank      = Character.GetRank( ply )
+						local battalion = Character.GetBattalion( ply )
+
 						draw.SimpleTextOutlined(
 							Character.GetName( ply ), "SWRP.Overhead",
-							pos.x, pos.y, Character.GetColor( ply ),
+							pos.x, pos.y - 16, Character.GetColor( ply ),
 							TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM,
 							1, T.colors.outline )
+
+						if rank or battalion then
+							draw.SimpleTextOutlined(
+								( rank and rank.name or "" )
+								.. ( ( rank and battalion ) and " · " or "" )
+								.. ( battalion and battalion.name or "" ),
+								"SWRP.OverheadSub",
+								pos.x, pos.y, T.colors.white,
+								TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM,
+								1, T.colors.outline )
+						end
 					end
 				end
 			end

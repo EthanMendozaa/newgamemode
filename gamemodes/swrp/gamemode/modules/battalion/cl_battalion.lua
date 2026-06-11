@@ -1,44 +1,85 @@
 --[[----------------------------------------------------------------------------
-	Battalion module (client) — the Battalion menu tab.
+	Battalion module (client) — the Battalion terminal tab (v4).
 
-	Pure intent-sender: buttons fire net messages; the server is the gate.
-	Hierarchy.Can runs here only to HIDE actions the server would reject
-	(player-ux: don't show controls that can't work), and the same check is
-	re-run authoritatively server-side on every click.
+	Airy avatar roster, client-side search, and ALL member actions in a
+	click/right-click context menu (no persistent action buttons — approved
+	design). Pure intent-sender: Hierarchy.Can here only hides menu entries the
+	server would reject; every action is re-validated server-side.
 ------------------------------------------------------------------------------]]
 
 local Battalion = SWRP.Battalion
 local Hierarchy = SWRP.Hierarchy
+local Character = SWRP.Character
 local UI        = SWRP.UI
 
 local state = {
-	roster = nil,    -- last payload from the server
-	tbl    = nil,    -- live table widget (if tab open)
-	title  = nil,    -- live header label
+	roster = nil,    -- last payload
+	list   = nil,    -- scroll panel
+	head   = nil,    -- header line panel
+	filter = "",
 }
-
---------------------------------------------------------------------------------
--- Roster rendering
---------------------------------------------------------------------------------
 
 local function myId()
 	return LocalPlayer():SteamID64() or ( "BOT_" .. LocalPlayer():EntIndex() )
 end
 
-local function rebuild()
-	if not ( state.tbl and IsValid( state.tbl.wrap ) ) or not state.roster then return end
+--------------------------------------------------------------------------------
+-- Context menu (the v4 action surface)
+--------------------------------------------------------------------------------
 
-	local data      = state.roster
-	local battalion = Hierarchy.GetBattalion( data.battalion_id )
-	local batColor  = battalion and battalion.color or nil
-	local lp        = LocalPlayer()
+local function openMemberMenu( row )
+	local lp   = LocalPlayer()
+	local desc = { battalion_id = state.roster.battalion_id, rank_id = row.rank_id }
 
-	if IsValid( state.title ) then
-		state.title:SetText( string.format( "%s — %d member(s)",
-			battalion and battalion.name or "Battalion", #data.rows ) )
+	local items = {}
+
+	if Hierarchy.Can( lp, "can_promote", desc ) then
+		items[ #items + 1 ] = { label = "▲  Promote", onClick = function()
+			SWRP.Net.Send( "swrp.battalion.action", { action = "promote", target = row.id } )
+		end }
+	end
+	if Hierarchy.Can( lp, "can_demote", desc ) then
+		items[ #items + 1 ] = { label = "▼  Demote", onClick = function()
+			SWRP.Net.Send( "swrp.battalion.action", { action = "demote", target = row.id } )
+		end }
 	end
 
-	-- Sort: online first, then rank (highest first), then name.
+	-- Lore offers: online targets only, officers with the permission (the
+	-- server re-checks; commander slots are refused server-side for non-staff).
+	if SWRP.Lore and row.online and Hierarchy.Can( lp, "can_offer_lore" ) then
+		local slots = SWRP.Lore.SlotsFor( state.roster.battalion_id )
+		for _, slot in ipairs( slots ) do
+			items[ #items + 1 ] = { label = "Offer: " .. slot.name, onClick = function()
+				LocalPlayer():ConCommand( 'swrp_offerlore "' .. row.id .. '" "' .. slot.name .. '"' )
+			end }
+		end
+	end
+
+	if Hierarchy.Can( lp, "can_kick", desc ) then
+		items[ #items + 1 ] = { label = "Remove from battalion", danger = true, onClick = function()
+			UI.Confirm( "Remove member", "Remove " .. row.name .. " from the battalion?",
+				function()
+					SWRP.Net.Send( "swrp.battalion.action", { action = "kick", target = row.id } )
+				end )
+		end }
+	end
+
+	if #items == 0 then return end
+	UI.ContextMenu( items )
+end
+
+--------------------------------------------------------------------------------
+-- Roster rendering
+--------------------------------------------------------------------------------
+
+local function rebuild()
+	if not ( IsValid( state.list ) and state.roster ) then return end
+
+	local theme = SWRP.Theme
+	local C     = theme.colors
+	local data  = state.roster
+
+	-- Sort: online first, rank descending, then name.
 	table.sort( data.rows, function( a, b )
 		if a.online ~= b.online then return a.online end
 		local ra = Hierarchy.GetRank( a.rank_id )
@@ -49,46 +90,63 @@ local function rebuild()
 		return ( a.name or "" ) < ( b.name or "" )
 	end )
 
-	state.tbl:Clear()
+	state.list:Clear()
+
+	local needle = string.lower( state.filter )
 
 	for _, row in ipairs( data.rows ) do
-		local rank   = Hierarchy.GetRank( row.rank_id )
-		local desc   = { battalion_id = data.battalion_id, rank_id = row.rank_id }
-		local isSelf = ( row.id == myId() )
+		local visible = needle == ""
+			or string.find( string.lower( row.name or "" ), needle, 1, true )
+			or string.find( row.designation or "", needle, 1, true )
 
-		local buttons = {}
-		if not isSelf then
-			if Hierarchy.Can( lp, "can_promote", desc ) then
-				buttons[ #buttons + 1 ] = { label = "▲", onClick = function()
-					SWRP.Net.Send( "swrp.battalion.action", { action = "promote", target = row.id } )
-				end }
+		if visible then
+			local rank   = Hierarchy.GetRank( row.rank_id )
+			local isSelf = ( row.id == myId() )
+			local gold   = rank and rank.virtual   -- commander
+
+			local r = vgui.Create( "DPanel" )
+			r:SetTall( theme.spacing.listH )
+			r:Dock( TOP )
+
+			-- Avatar (online players by entity; offline get initials discs)
+			local who = nil
+			for _, p in ipairs( player.GetAll() ) do
+				local pid = p:SteamID64() or ( "BOT_" .. p:EntIndex() )
+				if pid == row.id then who = p break end
 			end
-			if Hierarchy.Can( lp, "can_demote", desc ) then
-				buttons[ #buttons + 1 ] = { label = "▼", onClick = function()
-					SWRP.Net.Send( "swrp.battalion.action", { action = "demote", target = row.id } )
-				end }
+			local av = UI.Avatar( r, who or row.name, theme.kit.avatar )
+			av:SetPos( 6, ( theme.spacing.listH - theme.kit.avatar ) / 2 )
+
+			r.Paint = function( self, w, h )
+				local hf = isSelf and 0 or UI.HoverFrac( self )
+				if hf > 0.02 then
+					surface.SetDrawColor( 65, 105, 225, 24 * hf )
+					surface.DrawRect( 0, 0, w, h )
+				end
+
+				local nameCol = gold and C.gold or ( row.online and C.textBlue or C.textDim )
+				local fullName = ( rank and rank.tag or "?" ) .. " "
+					.. ( row.designation or "----" ) .. " " .. ( row.name or "?" )
+
+				draw.SimpleText( fullName, "SWRP.Sub", 56, h / 2,
+					nameCol, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+				draw.SimpleText( rank and rank.name or "—", "SWRP.Small", w * 0.52, h / 2,
+					row.online and C.textDim or C.label, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+				draw.SimpleText( row.online and "Online" or "Offline", "SWRP.Small",
+					w - 8, h / 2, row.online and C.success or C.label,
+					TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER )
+
+				surface.SetDrawColor( C.hairline )
+				surface.DrawRect( 0, h - 1, w, 1 )
 			end
-			if Hierarchy.Can( lp, "can_kick", desc ) then
-				buttons[ #buttons + 1 ] = { label = "✕", variant = "danger", onClick = function()
-					UI.Confirm( "Remove member",
-						"Remove " .. row.name .. " from the battalion?",
-						function()
-							SWRP.Net.Send( "swrp.battalion.action", { action = "kick", target = row.id } )
-						end )
-				end }
+
+			if not isSelf then
+				r:SetCursor( "hand" )
+				r.OnMousePressed = function() openMemberMenu( row ) end
 			end
+
+			state.list:AddItem( r )
 		end
-
-		state.tbl:AddRow( {
-			( rank and rank.tag or "?" ) .. " " .. ( row.designation or "----" ) .. " " .. ( row.name or "?" ),
-			rank and rank.name or "—",
-			row.designation or "—",
-			row.online and "Online" or "Offline",
-		}, {
-			color   = batColor,
-			dim     = not row.online,
-			buttons = buttons,
-		} )
 	end
 end
 
@@ -98,43 +156,61 @@ function Battalion.OnRoster( data )
 end
 
 --------------------------------------------------------------------------------
--- Invite picker
+-- Invite picker (dialog)
 --------------------------------------------------------------------------------
 
 local function openInvitePicker()
-	local lp     = LocalPlayer()
-	local myBat  = SWRP.Character.GetBattalion( lp )
-	local f      = UI.Frame( 360, 380, "Invite to " .. ( myBat and myBat.name or "battalion" ) )
+	local lp    = LocalPlayer()
+	local myBat = Character.GetBattalion( lp )
+	local f     = UI.Frame( 380, 420, "Invite to " .. ( myBat and myBat.name or "battalion" ) )
 
-	local tbl = UI.Table( f.Body, {
-		{ name = "Player", frac = 0.62 },
-		{ name = "",       frac = 0.38 },
-	} )
+	local scroll = vgui.Create( "DScrollPanel", f.Body )
+	scroll:Dock( FILL )
 
 	local any = false
 	for _, p in ipairs( player.GetAll() ) do
-		local theirBat = SWRP.Character.GetBattalion( p )
+		local theirBat = Character.GetBattalion( p )
 		if p ~= lp and ( not theirBat or not myBat or theirBat.id ~= myBat.id ) then
 			any = true
-			tbl:AddRow( { SWRP.Character.GetName( p ), "" }, {
-				color   = SWRP.Character.GetColor( p ),
-				buttons = {
-					{ label = "Invite", variant = "primary", width = 64, onClick = function()
-						SWRP.Net.Send( "swrp.battalion.invite", { target = p } )
-						f:Close()
-					end },
-				},
-			} )
+
+			local row = vgui.Create( "DPanel" )
+			row:SetTall( 48 )
+			row:Dock( TOP )
+
+			local av = UI.Avatar( row, p, 30 )
+			av:SetPos( 4, 9 )
+
+			row.Paint = function( self, w, h )
+				local C = SWRP.Theme.colors
+				draw.SimpleText( Character.GetName( p ), "SWRP.Sub", 44, h / 2,
+					Character.GetColor( p ), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+				surface.SetDrawColor( C.hairline )
+				surface.DrawRect( 0, h - 1, w, 1 )
+			end
+
+			local invite = UI.Button( row, "Invite", "primary", function()
+				SWRP.Net.Send( "swrp.battalion.invite", { target = p } )
+				f:Close()
+			end )
+			invite:Dock( RIGHT )
+			invite:SetWide( 76 )
+			invite:DockMargin( 0, 7, 0, 7 )
+
+			scroll:AddItem( row )
 		end
 	end
 
 	if not any then
-		tbl:AddRow( { "No eligible players online", "" }, { dim = true } )
+		local lbl = vgui.Create( "DLabel", f.Body )
+		lbl:SetFont( "SWRP.Sub" )
+		lbl:SetTextColor( SWRP.Theme.colors.textDim )
+		lbl:SetText( "No eligible players online." )
+		lbl:Dock( TOP )
 	end
 end
 
 --------------------------------------------------------------------------------
--- Menu tab
+-- Terminal tab
 --------------------------------------------------------------------------------
 
 UI.RegisterMenuTab( {
@@ -143,42 +219,60 @@ UI.RegisterMenuTab( {
 	order = 20,
 	build = function( panel )
 		local theme = SWRP.Theme
+		local C     = theme.colors
+		local lp    = LocalPlayer()
 
-		local top = vgui.Create( "DPanel", panel )
-		top:Dock( TOP )
-		top:SetTall( theme.kit.btnH )
-		top:DockMargin( 0, 0, 0, theme.spacing.pad )
-		top.Paint = nil
+		-- Header line: battalion statement + counts + search + invite
+		local head = vgui.Create( "DPanel", panel )
+		head:Dock( TOP )
+		head:SetTall( 46 )
+		head:DockMargin( 0, 0, 0, 16 )
+		head.Paint = function( self, w, h )
+			local battalion = Character.GetBattalion( lp )
+			draw.SimpleText( string.upper( battalion and battalion.name or "BATTALION" ),
+				"SWRP.H2", 0, h / 2 - 1, C.text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
 
-		local title = vgui.Create( "DLabel", top )
-		title:SetFont( "SWRP.Sub" )
-		title:SetTextColor( theme.colors.text )
-		title:SetText( "Loading roster..." )
-		title:Dock( FILL )
-		state.title = title
-
-		local lp = LocalPlayer()
-		if Hierarchy.Can( lp, "can_invite" ) then
-			local invite = UI.Button( top, "Invite member", "primary", openInvitePicker )
-			invite:Dock( RIGHT )
-			invite:SetWide( 130 )
-			invite:DockMargin( 8, 0, 0, 0 )
+			if state.roster then
+				local online = 0
+				for _, r in ipairs( state.roster.rows ) do
+					if r.online then online = online + 1 end
+				end
+				surface.SetFont( "SWRP.H2" )
+				local tw = surface.GetTextSize( string.upper( battalion and battalion.name or "BATTALION" ) )
+				draw.SimpleText( #state.roster.rows .. " members  ·  " .. online .. " online",
+					"SWRP.Small", tw + 22, h / 2, C.textDim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+			end
 		end
 
-		local refresh = UI.Button( top, "Refresh", "ghost", function()
-			SWRP.Net.Send( "swrp.battalion.roster_request", {} )
-		end )
-		refresh:Dock( RIGHT )
-		refresh:SetWide( 90 )
+		if Hierarchy.Can( lp, "can_invite" ) then
+			local invite = UI.Button( head, "Invite member", "primary", openInvitePicker )
+			invite:Dock( RIGHT )
+			invite:SetWide( 140 )
+			invite:DockMargin( 10, 5, 0, 5 )
+		end
 
-		state.tbl = UI.Table( panel, {
-			{ name = "Name",   frac = 0.42 },
-			{ name = "Rank",   frac = 0.20 },
-			{ name = "Desig",  frac = 0.12 },
-			{ name = "Status", frac = 0.26 },
-		} )
+		local search = UI.TextEntry( head )
+		search:Dock( RIGHT )
+		search:SetWide( 280 )
+		search:DockMargin( 0, 5, 0, 5 )
+		search:SetPlaceholderText( "Search members…" )
+		search:SetUpdateOnType( true )
+		search.OnValueChange = function( _, value )
+			state.filter = value or ""
+			rebuild()
+		end
 
-		-- Render cached roster instantly, then ask for fresh data.
+		local list = vgui.Create( "DScrollPanel", panel )
+		list:Dock( FILL )
+		local sbar = list:GetVBar()
+		sbar:SetWide( 6 )
+		sbar.Paint = nil
+		sbar.btnUp.Paint, sbar.btnDown.Paint = nil, nil
+		sbar.btnGrip.Paint = function( self, w, h )
+			draw.RoundedBox( 3, 0, 0, w, h, C.bgRaised )
+		end
+		state.list = list
+
 		rebuild()
 		SWRP.Net.Send( "swrp.battalion.roster_request", {} )
 	end,

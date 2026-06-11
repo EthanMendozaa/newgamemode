@@ -1,7 +1,8 @@
 --[[----------------------------------------------------------------------------
-	Character module (client) — ready handshake + designation picker.
+	Character module (client) — ready handshake + designation picker (v4).
 
-	Built on the UI kit (SWRP.UI) — first impression screen. It cannot be
+	Digit-box hero moment (approved mockup): type your number into big boxes,
+	availability checks live as you complete it, claim when green. Cannot be
 	dismissed without choosing (first-join requirement), but never blocks
 	gameplay — it's a window, not a lock screen.
 ------------------------------------------------------------------------------]]
@@ -19,6 +20,7 @@ end )
 --------------------------------------------------------------------------------
 
 local frame = nil
+local state = { value = "", digits = 4, checked = nil, free = false }
 
 function Character.OpenDesignationPicker( digits )
 	if IsValid( frame ) then frame:Remove() end
@@ -27,49 +29,111 @@ function Character.OpenDesignationPicker( digits )
 	local theme = SWRP.Theme
 	local C     = theme.colors
 
-	frame = UI.Frame( 400, 240, "Choose your designation", { noClose = true } )
+	state.value, state.digits, state.checked, state.free = "", digits, nil, false
+
+	local boxW   = 56
+	local boxGap = 10
+	local w      = math.max( 420, digits * ( boxW + boxGap ) + 120 )
+
+	frame = UI.Frame( w, 310, "Choose your designation", { noClose = true } )
 
 	local info = vgui.Create( "DLabel", frame.Body )
-	info:SetText( "Pick a unique " .. digits .. "-digit designation — it becomes part of your name,\nlike 501st PVT 4456 Para. This is permanent (staff can change it)." )
+	info:SetText( "Your number in the Grand Army — it becomes part of your name, permanently.\nExample: 501st PVT 4456 Para" )
 	info:SetFont( "SWRP.Small" )
 	info:SetTextColor( C.textDim )
 	info:SetWrap( true )
 	info:Dock( TOP )
 	info:SetTall( 40 )
 
-	local entry = UI.TextEntry( frame.Body )
-	entry:Dock( TOP )
-	entry:DockMargin( 0, theme.spacing.pad, 0, 0 )
+	-- Hidden entry captures keystrokes; the digit boxes render its value.
+	local entry = vgui.Create( "DTextEntry", frame.Body )
+	entry:SetSize( 1, 1 )
+	entry:SetPos( -10, -10 )
 	entry:SetNumeric( true )
 	entry:SetUpdateOnType( true )
-	entry:SetPlaceholderText( string.rep( "0", digits ) )
 	entry.OnValueChange = function( self, value )
-		if #value > digits then self:SetValue( string.sub( value, 1, digits ) ) end
+		value = string.sub( string.gsub( value, "%D", "" ), 1, digits )
+		if value ~= self:GetValue() then self:SetValue( value ) end
+
+		state.value   = value
+		state.checked = nil
+		state.free    = false
+
+		if #value == digits then
+			SWRP.Net.Send( "swrp.character.designation_check", { designation = value } )
+		end
+	end
+
+	-- Digit boxes
+	local boxes = vgui.Create( "DPanel", frame.Body )
+	boxes:Dock( TOP )
+	boxes:SetTall( 78 )
+	boxes:DockMargin( 0, 14, 0, 0 )
+	boxes:SetCursor( "hand" )
+	boxes.OnMousePressed = function() entry:RequestFocus() end
+
+	boxes.Paint = function( self, bw, bh )
+		local total = digits * boxW + ( digits - 1 ) * boxGap
+		local x     = ( bw - total ) / 2
+
+		for i = 1, digits do
+			local ch     = string.sub( state.value, i, i )
+			local active = ( #state.value == i - 1 ) and entry:HasFocus()
+
+			surface.SetDrawColor( C.barBack )
+			draw.RoundedBox( theme.kit.radius, x, 4, boxW, 68, C.barBack )
+			surface.SetDrawColor( active and C.accent or
+				( state.checked and ( state.free and C.success or C.danger ) or C.divider ) )
+			surface.DrawOutlinedRect( x, 4, boxW, 68, 1 )
+
+			draw.SimpleText( ch ~= "" and ch or "–", "SWRP.Digit",
+				x + boxW / 2, 38, ch ~= "" and C.text or C.divider,
+				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+
+			x = x + boxW + boxGap
+		end
 	end
 
 	local status = vgui.Create( "DLabel", frame.Body )
-	status:SetText( "" )
+	status:SetText( "Click the boxes and type " .. digits .. " digits." )
 	status:SetFont( "SWRP.Small" )
+	status:SetTextColor( C.textDim )
+	status:SetContentAlignment( 5 )
 	status:Dock( TOP )
-	status:DockMargin( 0, 6, 0, 0 )
-	status:SetTall( 18 )
+	status:DockMargin( 0, 8, 0, 0 )
+	status:SetTall( 20 )
 	frame._status = status
 
 	local submit = UI.Button( frame.Body, "Claim designation", "primary", function()
-		local value = entry:GetValue()
-		if #value ~= digits or not string.match( value, "^%d+$" ) then
+		if #state.value ~= digits then
 			status:SetText( "Must be exactly " .. digits .. " digits." )
 			status:SetTextColor( C.danger )
 			return
 		end
-		status:SetText( "Checking..." )
+		status:SetText( "Claiming..." )
 		status:SetTextColor( C.textDim )
-		SWRP.Net.Send( "swrp.character.designation_claim", { designation = value } )
+		SWRP.Net.Send( "swrp.character.designation_claim", { designation = state.value } )
 	end )
 	submit:Dock( BOTTOM )
 
 	entry.OnEnter = function() submit:DoClick() end
 	entry:RequestFocus()
+end
+
+-- Live availability feedback (server checked the DB).
+function Character.OnDesignationCheck( designation, free )
+	if not IsValid( frame ) or designation ~= state.value then return end
+
+	local C = SWRP.Theme.colors
+	state.checked, state.free = true, free
+
+	if free then
+		frame._status:SetText( designation .. " is available" )
+		frame._status:SetTextColor( C.success )
+	else
+		frame._status:SetText( designation .. " is taken — try another" )
+		frame._status:SetTextColor( C.danger )
+	end
 end
 
 function Character.OnDesignationResult( ok, reason )
