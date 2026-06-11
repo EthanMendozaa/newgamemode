@@ -39,7 +39,7 @@ function Admin.OnAudit( rows )
 				sev = C.gold
 			end
 
-			draw.RoundedBox( 4, 0, h / 2 - 4, 8, 8, sev )
+			SWRP.UI.Rect( 4, 0, h / 2 - 4, 8, 8, sev )
 			draw.SimpleText( timeAgo( r.at ), "SWRP.Small", 22, h / 2, C.label,
 				TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
 			draw.SimpleText( ( r.actor_name ~= "" and r.actor_name or "system" ), "SWRP.Sub",
@@ -146,7 +146,7 @@ UI.RegisterMenuTab( {
 		sbar.Paint = nil
 		sbar.btnUp.Paint, sbar.btnDown.Paint = nil, nil
 		sbar.btnGrip.Paint = function( self, w, h )
-			draw.RoundedBox( 3, 0, 0, w, h, C.bgRaised )
+			SWRP.UI.Rect( 3, 0, 0, w, h, C.bgRaised )
 		end
 		state.feed = feed
 

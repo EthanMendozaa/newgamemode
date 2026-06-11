@@ -113,10 +113,10 @@ hook.Add( "ScoreboardShow", "SWRP.HUD.Scoreboard", function()
 
 	board.Paint = function( self, pw, ph )
 		UI.DrawBlur( self, theme.kit.blur )
-		draw.RoundedBox( theme.kit.radius, 0, 0, pw, ph, C.bg )
+		SWRP.UI.Rect( theme.kit.radius, 0, 0, pw, ph, C.bg )
 
 		-- Server band
-		draw.RoundedBoxEx( theme.kit.radius, 0, 0, pw, 54, C.titleBar, true, true, false, false )
+		SWRP.UI.RectTop( theme.kit.radius, 0, 0, pw, 54, C.titleBar )
 		surface.SetDrawColor( C.accent )
 		surface.DrawRect( 0, 52, pw, 2 )
 		draw.SimpleText( string.upper( GetHostName() ), "SWRP.Title", 16, 27 - 1, C.text,
@@ -134,7 +134,7 @@ hook.Add( "ScoreboardShow", "SWRP.HUD.Scoreboard", function()
 	sbar.Paint = nil
 	sbar.btnUp.Paint, sbar.btnDown.Paint = nil, nil
 	sbar.btnGrip.Paint = function( self, sw, sh )
-		draw.RoundedBox( 3, 0, 0, sw, sh, C.bgRaised )
+		SWRP.UI.Rect( 3, 0, 0, sw, sh, C.bgRaised )
 	end
 
 	buildRows( list )

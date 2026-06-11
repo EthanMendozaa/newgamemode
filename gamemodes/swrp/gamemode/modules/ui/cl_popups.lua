@@ -43,7 +43,7 @@ local function showNext()
 
 	p.Paint = function( self, pw, ph )
 		local C = T().colors
-		draw.RoundedBox( K.radius, 0, 0, pw, ph, C.bg )
+		SWRP.UI.Rect( K.radius, 0, 0, pw, ph, C.bg )
 		surface.SetDrawColor( C.gold )
 		surface.DrawRect( 0, 0, K.accentW, ph )
 
@@ -145,7 +145,7 @@ function UI.Toast( text, kind )
 
 	t.Paint = function( self, w, h )
 		local C = T().colors
-		draw.RoundedBox( K.radius, 0, 0, w, h, C.bg )
+		SWRP.UI.Rect( K.radius, 0, 0, w, h, C.bg )
 		surface.SetDrawColor( accent )
 		surface.DrawRect( 0, 0, K.accentW, h )
 		draw.SimpleText( text, "SWRP.Sub", K.accentW + 10, h / 2, C.text,

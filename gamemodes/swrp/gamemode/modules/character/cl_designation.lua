@@ -81,7 +81,7 @@ function Character.OpenDesignationPicker( digits )
 			local active = ( #state.value == i - 1 ) and entry:HasFocus()
 
 			surface.SetDrawColor( C.barBack )
-			draw.RoundedBox( theme.kit.radius, x, 4, boxW, 68, C.barBack )
+			SWRP.UI.Rect( theme.kit.radius, x, 4, boxW, 68, C.barBack )
 			surface.SetDrawColor( active and C.accent or
 				( state.checked and ( state.free and C.success or C.danger ) or C.divider ) )
 			surface.DrawOutlinedRect( x, 4, boxW, 68, 1 )

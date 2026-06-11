@@ -33,7 +33,7 @@ hook.Add( "HUDPaint", "SWRP.HUD.Plate", function()
 	local x    = S.margin
 	local y    = ScrH() - S.margin - h
 
-	draw.RoundedBox( T.kit.radius, x, y, w, h, C.bg )
+	SWRP.UI.Rect( T.kit.radius, x, y, w, h, C.bg )
 	surface.SetDrawColor( C.accent )
 	surface.DrawRect( x, y, T.kit.accentW, h )
 
@@ -57,8 +57,8 @@ hook.Add( "HUDPaint", "SWRP.HUD.Plate", function()
 	local hpMax  = math.max( 1, ply:GetMaxHealth() )
 	local hpFrac = math.min( 1, hp / hpMax )
 
-	draw.RoundedBox( 3, x + pad, hpY, barW, S.barH, C.barBack )
-	draw.RoundedBox( 3, x + pad, hpY, barW * hpFrac, S.barH,
+	SWRP.UI.Rect( 3, x + pad, hpY, barW, S.barH, C.barBack )
+	SWRP.UI.Rect( 3, x + pad, hpY, barW * hpFrac, S.barH,
 		hpFrac < 0.25 and C.healthLow or C.health )
 	draw.SimpleText( hp, "SWRP.Small", x + pad + barW - 5, hpY + S.barH / 2 - 1,
 		C.white, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER )
@@ -67,8 +67,8 @@ hook.Add( "HUDPaint", "SWRP.HUD.Plate", function()
 	local ar  = math.max( 0, ply:Armor() )
 	if ar > 0 then
 		local arFrac = math.min( 1, ar / 100 )
-		draw.RoundedBox( 3, x + pad, arY, barW, S.barH, C.barBack )
-		draw.RoundedBox( 3, x + pad, arY, barW * arFrac, S.barH, C.armor )
+		SWRP.UI.Rect( 3, x + pad, arY, barW, S.barH, C.barBack )
+		SWRP.UI.Rect( 3, x + pad, arY, barW * arFrac, S.barH, C.armor )
 		draw.SimpleText( ar, "SWRP.Small", x + pad + barW - 5, arY + S.barH / 2 - 1,
 			C.white, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER )
 	end
@@ -85,7 +85,7 @@ hook.Add( "HUDPaint", "SWRP.HUD.Plate", function()
 			local ax     = ScrW() - S.margin - aw
 			local ay     = ScrH() - S.margin - ah
 
-			draw.RoundedBox( T.kit.radius, ax, ay, aw, ah, C.bg )
+			SWRP.UI.Rect( T.kit.radius, ax, ay, aw, ah, C.bg )
 			surface.SetDrawColor( C.accent )
 			surface.DrawRect( ax + aw - T.kit.accentW, ay, T.kit.accentW, ah )
 

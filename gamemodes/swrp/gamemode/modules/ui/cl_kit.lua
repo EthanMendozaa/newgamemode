@@ -81,9 +81,10 @@ function UI.Frame( w, h, title, opts )
 
 	f.Paint = function( self, fw, fh )
 		local C = T().colors
-		UI.DrawBlur( self, T().kit.blur )
-		draw.RoundedBox( K.radius, 0, 0, fw, fh, C.bg )
-		draw.RoundedBoxEx( K.radius, 0, 0, fw, K.titleH, C.titleBar, true, true, false, false )
+		UI.Shadow( K.radius, 0, 0, fw, fh )
+		UI.BlurRect( K.radius, 0, 0, fw, fh )
+		UI.Rect( K.radius, 0, 0, fw, fh, C.bg )
+		UI.RectTop( K.radius, 0, 0, fw, K.titleH, C.titleBar )
 		surface.SetDrawColor( C.accent )
 		surface.DrawRect( 0, K.titleH - 2, fw, 2 )
 		draw.SimpleText( string.upper( title or "" ), "SWRP.Title",
@@ -134,15 +135,15 @@ function UI.Button( parent, text, variant, onClick )
 		local hf = UI.HoverFrac( self )
 
 		if variant == "primary" then
-			draw.RoundedBox( K.radius, 0, 0, w, h, UI.Blend( C.accent, C.accentHi, hf ) )
+			UI.Rect( K.radius, 0, 0, w, h, UI.Blend( C.accent, C.accentHi, hf ) )
 			draw.SimpleText( text, "SWRP.Button", w / 2, h / 2, C.white,
 				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 		elseif variant == "danger" then
-			draw.RoundedBox( K.radius, 0, 0, w, h, UI.Blend( C.danger, C.dangerHi, hf ) )
+			UI.Rect( K.radius, 0, 0, w, h, UI.Blend( C.danger, C.dangerHi, hf ) )
 			draw.SimpleText( text, "SWRP.Button", w / 2, h / 2, C.white,
 				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 		else -- ghost
-			draw.RoundedBox( K.radius, 0, 0, w, h, UI.Blend( C.bgLight, C.bgRaised, hf ) )
+			UI.Rect( K.radius, 0, 0, w, h, UI.Blend( C.bgLight, C.bgRaised, hf ) )
 			surface.SetDrawColor( UI.Blend( C.divider, C.accent, hf ) )
 			surface.DrawOutlinedRect( 0, 0, w, h, 1 )
 			draw.SimpleText( text, "SWRP.Button", w / 2, h / 2,
@@ -206,11 +207,11 @@ function UI.Tabs( parent )
 			local hf = UI.HoverFrac( self )
 
 			if on then
-				draw.RoundedBox( K.radius, 0, 0, w, h, C.accent )
+				UI.Rect( K.radius, 0, 0, w, h, C.accent )
 				draw.SimpleText( label, "SWRP.Button", w / 2, h / 2, C.white,
 					TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 			else
-				draw.RoundedBox( K.radius, 0, 0, w, h, UI.Blend( C.bgLight, C.bgRaised, hf ) )
+				UI.Rect( K.radius, 0, 0, w, h, UI.Blend( C.bgLight, C.bgRaised, hf ) )
 				draw.SimpleText( label, "SWRP.Button", w / 2, h / 2,
 					UI.Blend( C.textDim, C.text, hf ),
 					TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
@@ -269,7 +270,7 @@ function UI.Table( parent, columns )
 	sbar.Paint = nil
 	sbar.btnUp.Paint, sbar.btnDown.Paint = nil, nil
 	sbar.btnGrip.Paint = function( self, w, h )
-		draw.RoundedBox( 3, 0, 0, w, h, T().colors.bgRaised )
+		UI.Rect( 3, 0, 0, w, h, T().colors.bgRaised )
 	end
 
 	local tbl = { wrap = wrap, scroll = scroll }
@@ -289,7 +290,7 @@ function UI.Table( parent, columns )
 		row.Paint = function( self, w, h )
 			local C, K = T().colors, T().kit
 			local hf = opts.onClick and UI.HoverFrac( self ) or 0
-			draw.RoundedBox( K.radius, 0, 0, w, h, UI.Blend( C.bgLight, C.bgRaised, hf ) )
+			UI.Rect( K.radius, 0, 0, w, h, UI.Blend( C.bgLight, C.bgRaised, hf ) )
 
 			if opts.color and not opts.dim then
 				surface.SetDrawColor( opts.color )
@@ -347,7 +348,7 @@ function UI.Card( parent, title )
 
 	card.Paint = function( self, w, h )
 		local C, K = T().colors, T().kit
-		draw.RoundedBox( K.radius, 0, 0, w, h, C.bgLight )
+		UI.Rect( K.radius, 0, 0, w, h, C.bgLight )
 		surface.SetDrawColor( self._accent or C.accent )
 		surface.DrawRect( 0, 0, K.accentW, h )
 		if title then
@@ -374,9 +375,9 @@ function UI.Bar( parent )
 
 	bar.Paint = function( self, w, h )
 		local C = T().colors
-		draw.RoundedBox( 3, 0, 0, w, h, C.barBack )
+		UI.Rect( 3, 0, 0, w, h, C.barBack )
 		if self._frac > 0 then
-			draw.RoundedBox( 3, 0, 0, w * self._frac, h, self._color or C.accent )
+			UI.Rect( 3, 0, 0, w * self._frac, h, self._color or C.accent )
 		end
 	end
 
@@ -400,7 +401,7 @@ function UI.PlayerCard( parent, ply )
 		local designation = Character.GetDesignation( ply )
 		local batColor    = battalion and battalion.color or C.textDim
 
-		draw.RoundedBox( K.radius, 0, 0, w, h, C.bgLight )
+		UI.Rect( K.radius, 0, 0, w, h, C.bgLight )
 		surface.SetDrawColor( batColor )
 		surface.DrawRect( 0, 0, K.accentW, h )
 
@@ -433,7 +434,7 @@ function UI.TextEntry( parent )
 
 	entry.Paint = function( self, w, h )
 		local C, K = T().colors, T().kit
-		draw.RoundedBox( K.radius, 0, 0, w, h, C.barBack )
+		UI.Rect( K.radius, 0, 0, w, h, C.barBack )
 		surface.SetDrawColor( self:HasFocus() and C.accent or C.divider )
 		surface.DrawOutlinedRect( 0, 0, w, h, 1 )
 
@@ -481,11 +482,19 @@ function UI.Terminal()
 	end
 
 	-- ESC closes the terminal instead of opening the game menu.
-	t.Think = function( self )
-		if gui.IsGameUIVisible() then
-			gui.HideGameUI()
-			self:Close()
+	-- (OnPauseMenuShow: return false suppresses the pause menu — the supported
+	-- replacement for the deprecated gui.HideGameUI pattern.)
+	local escHook = "SWRP.Terminal.Esc." .. tostring( t )
+	hook.Add( "OnPauseMenuShow", escHook, function()
+		if not IsValid( t ) then
+			hook.Remove( "OnPauseMenuShow", escHook )
+			return
 		end
+		t:Close()
+		return false
+	end )
+	t.OnRemove = function()
+		hook.Remove( "OnPauseMenuShow", escHook )
 	end
 
 	-- Nav strip -----------------------------------------------------------
@@ -561,7 +570,8 @@ function UI.ContextMenu( items )
 	local menu = DermaMenu()
 	menu.Paint = function( self, w, h )
 		local C = T().colors
-		draw.RoundedBox( T().kit.radius, 0, 0, w, h, C.bg )
+		UI.Shadow( T().kit.radius, 0, 0, w, h, 12, 16 )
+		UI.Rect( T().kit.radius, 0, 0, w, h, C.bg )
 		surface.SetDrawColor( C.divider )
 		surface.DrawOutlinedRect( 0, 0, w, h, 1 )
 	end
@@ -610,7 +620,8 @@ function UI.FactRow( parent, label, value, valueColor )
 	return row
 end
 
--- Steam avatar with rounded backing; bots/unknown get an initials disc.
+-- TRUE circular Steam avatar (stencil-masked, the Circles.lua pattern);
+-- bots/offline entries get an antialiased initials disc.
 -- `who` is a Player, or a string used for initials.
 function UI.Avatar( parent, who, size )
 	size = size or T().kit.avatar
@@ -620,17 +631,48 @@ function UI.Avatar( parent, who, size )
 
 	local isPlayer = IsValid( who ) and who.IsPlayer and who:IsPlayer()
 
-	if isPlayer and not who:IsBot() then
-		wrap.Paint = nil
+	if isPlayer and not who:IsBot() and SWRP.Circles then
+		local mask = SWRP.Circles.New( CIRCLE_FILLED, size / 2, size / 2, size / 2 )
+		mask:SetDistance( 1 )
+
 		local img = vgui.Create( "AvatarImage", wrap )
 		img:Dock( FILL )
 		img:SetPlayer( who, size > 32 and 64 or 32 )
+		img:SetPaintedManually( true )
+
+		wrap.Paint = function( self, w, h )
+			render.ClearStencil()
+			render.SetStencilEnable( true )
+			render.SetStencilWriteMask( 1 )
+			render.SetStencilTestMask( 1 )
+
+			render.SetStencilFailOperation( STENCILOPERATION_REPLACE )
+			render.SetStencilPassOperation( STENCILOPERATION_ZERO )
+			render.SetStencilZFailOperation( STENCILOPERATION_ZERO )
+			render.SetStencilCompareFunction( STENCILCOMPARISONFUNCTION_NEVER )
+			render.SetStencilReferenceValue( 1 )
+
+			draw.NoTexture()
+			surface.SetDrawColor( 255, 255, 255 )
+			mask()
+
+			render.SetStencilFailOperation( STENCILOPERATION_ZERO )
+			render.SetStencilPassOperation( STENCILOPERATION_REPLACE )
+			render.SetStencilZFailOperation( STENCILOPERATION_ZERO )
+			render.SetStencilCompareFunction( STENCILCOMPARISONFUNCTION_EQUAL )
+			render.SetStencilReferenceValue( 1 )
+
+			img:PaintManual()
+
+			render.SetStencilEnable( false )
+			render.ClearStencil()
+		end
 	else
 		local name = isPlayer and who:Nick() or tostring( who or "?" )
 		local init = string.upper( string.sub( name, 1, 2 ) )
 		wrap.Paint = function( self, w, h )
 			local C = T().colors
-			draw.RoundedBox( w / 2, 0, 0, w, h, C.bgRaised )
+			UI.Dot( w / 2, h / 2, w, C.bgRaised )
 			draw.SimpleText( init, "SWRP.Label", w / 2, h / 2, C.textBlue,
 				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 		end
@@ -669,7 +711,7 @@ function UI.ClassCard( parent, data )
 
 	card.Paint = function( self, w, h )
 		local C, K = T().colors, T().kit
-		draw.RoundedBox( K.radius, 0, 0, w, h, C.bgLight )
+		UI.Rect( K.radius, 0, 0, w, h, C.bgLight )
 		surface.SetDrawColor( data.current and C.gold or C.divider )
 		surface.DrawOutlinedRect( 0, 0, w, h, 1 )
 	end
@@ -724,7 +766,7 @@ function UI.ClassCard( parent, data )
 				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 		elseif data.eligible then
 			local hf = UI.HoverFrac( self )
-			draw.RoundedBox( K.radius, 0, 0, w, h, UI.Blend( C.accent, C.accentHi, hf ) )
+			UI.Rect( K.radius, 0, 0, w, h, UI.Blend( C.accent, C.accentHi, hf ) )
 			draw.SimpleText( "BECOME " .. string.upper( data.name ), "SWRP.Button",
 				w / 2, h / 2, C.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 		else
@@ -741,4 +783,64 @@ function UI.ClassCard( parent, data )
 	if data.eligible and not data.current then cta:SetCursor( "hand" ) end
 
 	return card
+end
+
+--------------------------------------------------------------------------------
+-- Smooth rendering (vendored RNDX + Circles, core/cl_rndx.lua + cl_circles.lua)
+--
+-- Every shape in the kit routes through these: shader-antialiased rounded
+-- rects/circles, soft shadows, rounded blur, and animated rings. If the
+-- shader GMA ever fails to mount, everything falls back to stock draw.* —
+-- the UI degrades, never breaks.
+--------------------------------------------------------------------------------
+
+-- Antialiased rounded rect; drop-in for draw.RoundedBox.
+function UI.Rect( rad, x, y, w, h, col )
+	local R = SWRP.RNDX
+	if R then R.Draw( rad, x, y, w, h, col ) return end
+	UI.Rect( rad, x, y, w, h, col )
+end
+
+-- Top-corners-only rounded rect (title bars, header bands).
+function UI.RectTop( rad, x, y, w, h, col )
+	local R = SWRP.RNDX
+	if R then R.Draw( rad, x, y, w, h, col, R.NO_BL + R.NO_BR ) return end
+	draw.RoundedBoxEx( rad, x, y, w, h, col, true, true, false, false )
+end
+
+-- Filled circle (status dots, initials discs). d = diameter, centered.
+function UI.Dot( cx, cy, d, col )
+	local R = SWRP.RNDX
+	if R then R.DrawCircle( cx, cy, d, col ) return end
+	UI.Rect( d / 2, cx - d / 2, cy - d / 2, d, d, col )
+end
+
+-- Animated arc ring (cooldowns/countdowns). frac 0..1, d = diameter.
+function UI.Ring( cx, cy, d, thickness, frac, col )
+	local R = SWRP.RNDX
+	if not R then   -- fallback: plain outline, no arc
+		surface.SetDrawColor( col )
+		surface.DrawOutlinedRect( cx - d / 2, cy - d / 2, d, d, thickness )
+		return
+	end
+	R().Circle( cx, cy, d )
+		:Outline( thickness )
+		:StartAngle( -90 )
+		:EndAngle( -90 + 360 * math.Clamp( frac, 0, 1 ) )
+		:Color( col )
+		:Draw()
+end
+
+-- Soft drop shadow behind a panel-shaped rect.
+function UI.Shadow( rad, x, y, w, h, spread, intensity )
+	local R = SWRP.RNDX
+	if not R then return end
+	R.DrawShadows( rad, x, y, w, h, T().colors.outline, spread or 18, intensity or 22 )
+end
+
+-- Rounded blur matching a panel rect (windows); fullscreen surfaces keep
+-- UI.DrawBlur (pp/blurscreen covers the whole screen anyway).
+function UI.BlurRect( rad, x, y, w, h )
+	local R = SWRP.RNDX
+	if R then R.DrawBlur( x, y, w, h, 0, rad, rad, rad, rad ) return end
 end
