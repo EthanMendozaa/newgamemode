@@ -14,5 +14,6 @@ SWRP.addNews( {
 		.. "swrp_customthings/news.lua.",
 } )
 
-SWRP.addQuickLink( { label = "Discord", url = "https://discord.gg/yourserver", color = Color( 88, 101, 242 ) } )
-SWRP.addQuickLink( { label = "Rules",   url = "https://yourserver.com/rules",  color = Color( 178, 64, 56 ) } )
+SWRP.addQuickLink( { label = "Discord",  url = "https://discord.gg/yourserver",                       color = Color( 88, 101, 242 ) } )
+SWRP.addQuickLink( { label = "Workshop", url = "https://steamcommunity.com/workshop/",                color = Color( 60, 110, 160 ) } )
+SWRP.addQuickLink( { label = "Rules",    url = "https://yourserver.com/rules",                        color = Color( 178, 64, 56 ) } )

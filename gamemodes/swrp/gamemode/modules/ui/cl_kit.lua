@@ -1069,7 +1069,11 @@ function UI.RingGauge( parent )
 
 	ring.Paint = function( self, w, h )
 		local C = T().colors
-		self._anim = Lerp( RealFrameTime() * 6, self._anim, self._frac )
+		if SWRP.Prefs and SWRP.Prefs.Get( "reduced_motion", false ) then
+			self._anim = self._frac
+		else
+			self._anim = Lerp( RealFrameTime() * 6, self._anim, self._frac )
+		end
 
 		if SWRP.RNDX then
 			local d = math.min( w, h ) - 8

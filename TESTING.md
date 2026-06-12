@@ -190,7 +190,7 @@ are gold.
 - [ ] Ring: gold designation centered, green arc fills with service time (10h per lap)
 - [ ] HP/ARMOR bars under the model track damage live
 - [ ] Lore cell goes gold when you hold a slot (`!lore` to claim as staff)
-- [ ] Right zone shows HOLONET NEWS posts from swrp_customthings/news.lua (edit one, `swrp_reload_config`, reopen menu)
+- [ ] Right zone shows HOLONET NEWS posts from swrp_customthings/news.lua (on a local listen server, lua autorefresh re-runs the file on save — reopen the menu; dedicated-server clients need a reconnect)
 - [ ] Model updates after a class-switch respawn while the menu is open
 
 **Battalion tab**

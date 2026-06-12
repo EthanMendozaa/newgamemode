@@ -361,8 +361,8 @@ UI.RegisterMenuTab( {
 		list:DockMargin( 0, 0, 0, 0 )
 		SWRP.UI.Scrollbar( list )
 		state.list    = list
-		state.animate = true
-			state.animateUnit = true
+		state.animate     = true
+		state.animateUnit = true
 
 		rebuild()
 		rebuildUnit()
