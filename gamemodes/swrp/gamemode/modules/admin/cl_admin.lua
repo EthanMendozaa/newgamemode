@@ -124,20 +124,25 @@ UI.RegisterMenuTab( {
 		fieldRow(    "DESIGNATION", "designation", "e.g. 4456" )
 		fieldRow(    "RP NAME",     "name",        "new name" )
 
-		-- Right: audit feed ------------------------------------------------------
+		-- Right: audit feed (v6 — refresh inline in the feed header) -----------
 		local right = vgui.Create( "DPanel", panel )
 		right:Dock( FILL )
-		right.Paint = function( self, w, h )
-			draw.SimpleText( "AUDIT FEED", "SWRP.Label", 0, 4, C.label )
-		end
-		right:DockPadding( 0, 34, 0, 0 )
+		right.Paint = nil
 
-		local refresh = UI.Button( right, "Refresh", "ghost", function()
+		local head = vgui.Create( "DPanel", right )
+		head:Dock( TOP )
+		head:SetTall( 32 )
+		head:DockMargin( 0, 0, 0, 8 )
+		head.Paint = function( self, w, h )
+			draw.SimpleText( "AUDIT FEED", "SWRP.Label", 0, h / 2, C.label,
+				TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+		end
+
+		local refresh = UI.Button( head, "Refresh", "ghost", function()
 			SWRP.Net.Send( "swrp.admin.audit_request", {} )
 		end )
-		refresh:Dock( BOTTOM )
-		refresh:SetWide( 110 )
-		refresh:DockMargin( 0, 12, 0, 0 )
+		refresh:Dock( RIGHT )
+		refresh:SetWide( 100 )
 
 		local feed = vgui.Create( "DScrollPanel", right )
 		feed:Dock( FILL )
