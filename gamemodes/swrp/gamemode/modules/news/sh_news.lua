@@ -47,8 +47,8 @@ local function register( registry, def, schema, what )
 
 	-- A required field that failed validation resolved to nil — keep the
 	-- registry free of half-valid entries (never-crash config philosophy).
-	for field, def in pairs( schema ) do
-		if def.required and res[ field ] == nil then
+	for field, fdef in pairs( schema ) do
+		if fdef.required and res[ field ] == nil then
 			log.Error( "%s: %s '%s' dropped — required field '%s' is missing or invalid",
 				src or "?", what, tostring( key ), field )
 			return
