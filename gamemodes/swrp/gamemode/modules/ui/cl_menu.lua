@@ -48,153 +48,180 @@ end
 
 concommand.Add( "swrp_menu", function() UI.OpenMenu() end )
 
---------------------------------------------------------------------------------
--- Built-in tab: Character
---------------------------------------------------------------------------------
 
-local function formatService( seconds )
-	local h = math.floor( seconds / 3600 )
-	local m = math.floor( ( seconds % 3600 ) / 60 )
-	return h .. "h " .. m .. "m"
-end
+--------------------------------------------------------------------------------
+-- Built-in tab: Loadout (v6 — AotR slot cells around the live model)
+--------------------------------------------------------------------------------
 
 UI.RegisterMenuTab( {
-	id    = "character",
-	name  = "Character",
+	id    = "loadout",
+	name  = "Loadout",
 	order = 10,
 	build = function( panel )
 		local theme = SWRP.Theme
-		local C     = theme.colors
+		local C, K  = theme.colors, theme.kit
 		local lp    = LocalPlayer()
 		local Character = SWRP.Character
 
-		-- Live model, left ---------------------------------------------------
-		local modelWrap = vgui.Create( "DPanel", panel )
-		modelWrap:Dock( LEFT )
-		modelWrap:SetWide( math.floor( ScrW() * 0.18 ) )
-		modelWrap:DockMargin( 0, 0, 40, 0 )
-		modelWrap.Paint = function( self, w, h )
-			-- Rounded, hairline-bordered backdrop (mockup panel treatment).
-			SWRP.UI.Rect( theme.kit.radius, 0, 0, w, h, C.modelBg )
-			surface.SetDrawColor( C.divider )
-			surface.DrawOutlinedRect( 0, 0, w, h, 1 )
+		-- HERO (left ~58%): slot columns flanking the live model ----------------
+		local hero = vgui.Create( "DPanel", panel )
+		hero:Dock( LEFT )
+		hero:SetWide( math.floor( ( ScrW() - theme.spacing.termX * 2 ) * 0.58 ) )
+		hero:DockMargin( 0, 0, 44, 0 )
+		hero.Paint = nil
+
+		-- Identity statement + SERVICE bar (stands in for XP until Phase E)
+		local head = vgui.Create( "DPanel", hero )
+		head:Dock( TOP )
+		head:SetTall( 86 )
+		head.Paint = function( self, w, h )
+			local desig = Character.GetDesignation( lp )
+			local base  = string.match( Character.GetName( lp ), "(%S+)$" ) or lp:Nick()
+			draw.SimpleText(
+				( desig ~= "" and ( "CT-" .. desig .. " " ) or "" )
+				.. "“" .. string.upper( base ) .. "”",
+				"SWRP.Display", 0, 0, C.text )
+
+			local secs = Character.GetServiceTime( lp )
+			local frac = ( secs % 36000 ) / 36000   -- one bar = 10 hours
+			SWRP.UI.Rect( 2, 0, 62, w * 0.7, 8, C.barBack )
+			SWRP.UI.Rect( 2, 0, 62, w * 0.7 * frac, 8, C.presence )
+			draw.SimpleText( "SERVICE  " .. math.floor( secs / 3600 ) .. "H "
+				.. math.floor( ( secs % 3600 ) / 60 ) .. "M",
+				"SWRP.Label", w * 0.7 + 12, 66, C.label,
+				TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
 		end
 
+		-- Weapon slots, left column
+		local SLOT_W = 168
+		local leftCol = vgui.Create( "DPanel", hero )
+		leftCol:Dock( LEFT )
+		leftCol:SetWide( SLOT_W )
+		leftCol:DockMargin( 0, 18, 0, 0 )
+		leftCol.Paint = nil
+
+		local primary = UI.SlotCell( leftCol, "Primary" )
+		local sidearm = UI.SlotCell( leftCol, "Sidearm" )
+		local equip   = UI.SlotCell( leftCol, "Equipment" )
+		for i, cell in ipairs( { primary, sidearm, equip } ) do
+			cell:Dock( TOP )
+			cell:SetTall( 92 )
+			cell:DockMargin( 0, 0, 0, 14 )
+			UI.FadeIn( cell, UI.Stagger( i ) )
+		end
+
+		-- Service ring + identity slots, right column
+		local rightCol = vgui.Create( "DPanel", hero )
+		rightCol:Dock( RIGHT )
+		rightCol:SetWide( SLOT_W )
+		rightCol:DockMargin( 0, 18, 0, 0 )
+		rightCol.Paint = nil
+
+		local ring = UI.RingGauge( rightCol )
+		ring:Dock( TOP )
+		ring:SetTall( SLOT_W )
+		ring:DockMargin( 0, 0, 0, 14 )
+
+		local batCell  = UI.SlotCell( rightCol, "Battalion" )
+		local rankCell = UI.SlotCell( rightCol, "Rank" )
+		local clsCell  = UI.SlotCell( rightCol, "Class" )
+		local loreCell = UI.SlotCell( rightCol, "Lore" )
+		for i, cell in ipairs( { batCell, rankCell, clsCell, loreCell } ) do
+			cell:Dock( TOP )
+			cell:SetTall( 64 )
+			cell:DockMargin( 0, 0, 0, 14 )
+			UI.FadeIn( cell, UI.Stagger( 3 + i ) )
+		end
+
+		-- Center: live model over HP/ARMOR vitals
+		local center = vgui.Create( "DPanel", hero )
+		center:Dock( FILL )
+		center:DockMargin( 24, 18, 24, 0 )
+		center.Paint = nil
+
+		local vitals = vgui.Create( "DPanel", center )
+		vitals:Dock( BOTTOM )
+		vitals:SetTall( 54 )
+		vitals.Paint = function( self, w, h )
+			local barH = theme.spacing.barH
+			local hp     = math.max( 0, lp:Health() )
+			local hpMax  = math.max( 1, lp:GetMaxHealth() )
+			local hpFrac = math.min( 1, hp / hpMax )
+			SWRP.UI.Rect( 2, 0, 6, w, barH, C.barBack )
+			SWRP.UI.Rect( 2, 0, 6, w * hpFrac, barH,
+				hpFrac < 0.25 and C.healthLow or C.health )
+			draw.SimpleText( "HP " .. hp, "SWRP.Label", 4, 6 + barH / 2,
+				C.white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+
+			local ar  = math.max( 0, lp:Armor() )
+			local arY = 6 + barH + 6
+			SWRP.UI.Rect( 2, 0, arY, w, barH, C.barBack )
+			SWRP.UI.Rect( 2, 0, arY, w * math.min( 1, ar / 100 ), barH, C.armor )
+			draw.SimpleText( "ARMOR " .. ar, "SWRP.Label", 4, arY + barH / 2,
+				C.white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+		end
+
+		local modelWrap = vgui.Create( "DPanel", center )
+		modelWrap:Dock( FILL )
+		modelWrap:DockMargin( 0, 0, 0, 12 )
+		modelWrap.Paint = function( self, w, h )
+			SWRP.UI.Rect( K.radius, 0, 0, w, h, C.modelBg )
+			surface.SetDrawColor( C.cellBorder )
+			surface.DrawOutlinedRect( 0, 0, w, h, 1 )
+		end
 		local mdl = UI.ModelView( modelWrap, lp:GetModel() )
 		mdl:Dock( FILL )
 		UI.FadeIn( modelWrap, 0.05 )
 
-		-- Identity + facts, right — content capped ~820px wide (playtest: fact
-		-- rows stretched edge-to-edge on wide monitors).
-		local contentW = ScrW() - theme.spacing.termX * 2
-		local modelW   = math.floor( ScrW() * 0.18 )
-		local rightCap = math.max( math.floor( ScrW() * 0.05 ), contentW - modelW - 40 - 820 )
-
-		local right = vgui.Create( "DPanel", panel )
-		right:Dock( FILL )
-		right:DockPadding( 0, 6, rightCap, 0 )
-		right.Paint = nil
-
-		local head = vgui.Create( "DPanel", right )
-		head:Dock( TOP )
-		head:SetTall( 76 )
-		head.Paint = function( self, w, h )
+		-- Live updates (identity/class can change while the menu is open)
+		hero.Think = function()
 			local battalion = Character.GetBattalion( lp )
 			local rank      = Character.GetRank( lp )
-			local desig     = Character.GetDesignation( lp )
+			batCell:SetValue( battalion and battalion.name or "Unassigned",
+				battalion and battalion.color or C.textDim )
+			rankCell:SetValue( rank and rank.name or "—" )
 
-			-- "CT-4456 “PARA”" — RP base name is the last token of the derived name.
-			local base = string.match( Character.GetName( lp ), "(%S+)$" ) or lp:Nick()
-			local statement = ( desig ~= "" and ( "CT-" .. desig .. " " ) or "" )
-				.. "“" .. string.upper( base ) .. "”"
-
-			draw.SimpleText( statement, "SWRP.Display", 0, 6, C.text )
-
-			local classId = Character.GetClassId( lp )
-			local className
+			local className, weapons = "—", {}
 			if SWRP.Class then
-				local a = SWRP.Class.GetAssignment( classId )
-				if a then className = SWRP.Class.Resolve( a ).name end
-			end
-
-			local sub = ( battalion and battalion.name or "No battalion" )
-				.. ( rank and ( " · " .. rank.name ) or "" )
-				.. ( className and ( " · " .. className ) or "" )
-			draw.SimpleText( sub, "SWRP.Sub", 2, 50, C.accentSub )
-		end
-
-		local facts = vgui.Create( "DPanel", right )
-		facts:Dock( TOP )
-		facts:SetTall( theme.spacing.factH * 4 )
-		facts:DockMargin( 0, 22, 0, 0 )
-		facts.Paint = nil
-
-		local desigRow = UI.FactRow( facts, "Designation", "—", C.gold )
-		local timeRow  = UI.FactRow( facts, "Service time", "—" )
-		local loadRow  = UI.FactRow( facts, "Loadout", "—", C.textDim )
-		local loreRow  = UI.FactRow( facts, "Lore identity", "—", C.textDim )
-		UI.FadeIn( desigRow, UI.Stagger( 1 ) )
-		UI.FadeIn( timeRow,  UI.Stagger( 2 ) )
-		UI.FadeIn( loadRow,  UI.Stagger( 3 ) )
-		UI.FadeIn( loreRow,  UI.Stagger( 4 ) )
-
-		facts.Think = function()
-			local desig = Character.GetDesignation( lp )
-			desigRow:SetValue( desig ~= "" and desig or "Not chosen" )
-			timeRow:SetValue( formatService( Character.GetServiceTime( lp ) ) )
-
-			local a = SWRP.Class and SWRP.Class.GetAssignment( Character.GetClassId( lp ) )
-			if a then
-				local weapons = {}
-				for _, w in ipairs( SWRP.Class.Resolve( a ).weapons ) do
-					weapons[ #weapons + 1 ] = string.gsub( w, "^weapon_", "" )
+				local a = SWRP.Class.GetAssignment( Character.GetClassId( lp ) )
+				if a then
+					local res = SWRP.Class.Resolve( a )
+					className = res.name
+					weapons   = res.weapons or {}
 				end
-				loadRow:SetValue( table.concat( weapons, " · " ), C.textDim )
 			end
+			clsCell:SetValue( className )
+
+			local function wname( i )
+				return weapons[ i ] and string.gsub( weapons[ i ], "^weapon_", "" ) or nil
+			end
+			primary:SetValue( wname( 1 ) or "Empty", wname( 1 ) and C.text or C.label )
+			sidearm:SetValue( wname( 2 ) or "Empty", wname( 2 ) and C.text or C.label )
+			equip:SetValue(
+				#weapons > 2 and ( "+" .. ( #weapons - 2 ) .. " items" ) or "Empty",
+				#weapons > 2 and C.text or C.label )
 
 			local loreId = Character.GetLoreId( lp )
-			local slot   = loreId ~= "" and SWRP.Lore and SWRP.Lore.Get( loreId )
-			loreRow:SetValue( slot and slot.name or "None held",
+			local slot   = loreId ~= "" and SWRP.Lore and SWRP.Lore.Get( loreId ) or nil
+			loreCell:SetValue( slot and slot.name or "None held",
 				slot and C.gold or C.label )
+			loreCell:SetAccent( slot and C.gold or nil )
+
+			local desig = Character.GetDesignation( lp )
+			local secs  = Character.GetServiceTime( lp )
+			ring:SetFraction( ( secs % 36000 ) / 36000 )
+			ring:SetCenter( desig ~= "" and desig or "—",
+				"SERVICE " .. math.floor( secs / 3600 ) .. "H" )
+			ring:SetColor( C.presence )
 		end
 
-		-- Chain of command -----------------------------------------------------
-		local chain = vgui.Create( "DPanel", right )
-		chain:Dock( TOP )
-		chain:SetTall( 56 )
-		chain:DockMargin( 0, 26, 0, 0 )
-		chain.Paint = function( self, w, h )
-			draw.SimpleText( "CHAIN OF COMMAND", "SWRP.Label", 0, h / 2, C.label,
-				TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+		-- NEWS (right zone — sized where the Phase B inventory grid will live) ---
+		local news = vgui.Create( "DPanel", panel )
+		news:Dock( FILL )
+		news:DockPadding( 0, 26, 0, 0 )
+		news.Paint = function( self, w, h )
+			draw.SimpleText( "HOLONET NEWS", "SWRP.Label", 0, 0, C.label )
 		end
-
-		local myBat = Character.GetBattalion( lp )
-		local officers, labels = {}, {}
-		for _, p in ipairs( player.GetAll() ) do
-			local b = Character.GetBattalion( p )
-			local r = Character.GetRank( p )
-			if b and myBat and b.id == myBat.id and r
-				and ( r.virtual or next( r.permissions or {} ) ~= nil ) then
-				officers[ #officers + 1 ] = { ply = p, rank = r }
-			end
-		end
-		table.sort( officers, function( a, b ) return a.rank.index > b.rank.index end )
-
-		local x = 190
-		for i = 1, math.min( #officers, 5 ) do
-			local o  = officers[ i ]
-			local av = UI.Avatar( chain, o.ply, 34 )
-			av:SetPos( x, 11 )
-			x = x + 46
-			labels[ #labels + 1 ] = o.rank.tag .. " " .. ( string.match( SWRP.Character.GetName( o.ply ), "(%S+)$" ) or "" )
-		end
-
-		local lbl = vgui.Create( "DLabel", chain )
-		lbl:SetFont( "SWRP.Small" )
-		lbl:SetTextColor( C.textDim )
-		lbl:SetText( #officers > 0 and ( table.concat( labels, " · " ) .. " online" )
-			or "No officers online" )
-		lbl:SetPos( x + 12, 18 )
-		lbl:SizeToContents()
+		if SWRP.News then SWRP.News.BuildFeed( news ) end
 	end,
 } )
