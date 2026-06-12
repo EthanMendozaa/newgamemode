@@ -152,6 +152,8 @@ function UI.Toast( text, kind )
 			TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
 	end
 
+	t:SetAlpha( 0 )
+	t:AlphaTo( 255, 0.15 )
 	toasts[ #toasts + 1 ] = t
 	layoutToasts()
 

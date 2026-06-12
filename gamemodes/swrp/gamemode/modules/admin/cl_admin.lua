@@ -141,13 +141,7 @@ UI.RegisterMenuTab( {
 
 		local feed = vgui.Create( "DScrollPanel", right )
 		feed:Dock( FILL )
-		local sbar = feed:GetVBar()
-		sbar:SetWide( 6 )
-		sbar.Paint = nil
-		sbar.btnUp.Paint, sbar.btnDown.Paint = nil, nil
-		sbar.btnGrip.Paint = function( self, w, h )
-			SWRP.UI.Rect( 3, 0, 0, w, h, C.bgRaised )
-		end
+		SWRP.UI.Scrollbar( feed )
 		state.feed = feed
 
 		SWRP.Net.Send( "swrp.admin.audit_request", {} )

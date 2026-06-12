@@ -12,7 +12,9 @@ local UI        = SWRP.UI
 
 local board = nil
 
-local function buildRows( list )
+local rowCount
+local function buildRows( list, animate )
+	rowCount = 0
 	list:Clear()
 
 	local theme = SWRP.Theme
@@ -95,6 +97,10 @@ local function buildRows( list )
 			end
 
 			list:AddItem( row )
+			if animate then
+				rowCount = ( rowCount or 0 ) + 1
+				UI.FadeIn( row, UI.Stagger( rowCount ) )
+			end
 		end
 	end
 end
@@ -129,15 +135,9 @@ hook.Add( "ScoreboardShow", "SWRP.HUD.Scoreboard", function()
 	list:Dock( FILL )
 	list:DockMargin( 0, 60, 0, 8 )
 
-	local sbar = list:GetVBar()
-	sbar:SetWide( 6 )
-	sbar.Paint = nil
-	sbar.btnUp.Paint, sbar.btnDown.Paint = nil, nil
-	sbar.btnGrip.Paint = function( self, sw, sh )
-		SWRP.UI.Rect( 3, 0, 0, sw, sh, C.bgRaised )
-	end
+	UI.Scrollbar( list )
 
-	buildRows( list )
+	buildRows( list, true )
 
 	-- Periodic refresh while open (joins/leaves, rank changes).
 	timer.Create( "SWRP.Scoreboard.Refresh", 2, 0, function()

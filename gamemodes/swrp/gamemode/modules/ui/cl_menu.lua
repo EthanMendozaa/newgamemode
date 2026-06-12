@@ -82,6 +82,7 @@ UI.RegisterMenuTab( {
 
 		local mdl = UI.ModelView( modelWrap, lp:GetModel() )
 		mdl:Dock( FILL )
+		UI.FadeIn( modelWrap, 0.05 )
 
 		-- Identity + facts, right — content capped ~820px wide (playtest: fact
 		-- rows stretched edge-to-edge on wide monitors).
@@ -132,6 +133,10 @@ UI.RegisterMenuTab( {
 		local timeRow  = UI.FactRow( facts, "Service time", "—" )
 		local loadRow  = UI.FactRow( facts, "Loadout", "—", C.textDim )
 		local loreRow  = UI.FactRow( facts, "Lore identity", "—", C.textDim )
+		UI.FadeIn( desigRow, UI.Stagger( 1 ) )
+		UI.FadeIn( timeRow,  UI.Stagger( 2 ) )
+		UI.FadeIn( loadRow,  UI.Stagger( 3 ) )
+		UI.FadeIn( loreRow,  UI.Stagger( 4 ) )
 
 		facts.Think = function()
 			local desig = Character.GetDesignation( lp )

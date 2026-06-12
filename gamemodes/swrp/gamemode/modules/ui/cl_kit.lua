@@ -68,6 +68,10 @@ function UI.Frame( w, h, title, opts )
 	local theme = T()
 	local K, S  = theme.kit, theme.spacing
 
+	-- Dialogs float above a dimmed veil and ease in (created before the frame
+	-- so it sits underneath).
+	local veil = not opts.noVeil and UI.Veil() or nil
+
 	local f = vgui.Create( "DFrame" )
 	f:SetSize( w, h )
 	f:Center()
@@ -75,6 +79,15 @@ function UI.Frame( w, h, title, opts )
 	f:ShowCloseButton( false )
 	f:SetDraggable( true )
 	f:MakePopup()
+	UI.PopIn( f )
+
+	f.OnRemove = function()
+		if IsValid( veil ) then
+			veil:AlphaTo( 0, 0.12, 0, function()
+				if IsValid( veil ) then veil:Remove() end
+			end )
+		end
+	end
 
 	-- DFrame ships a hidden 24px top dock padding; replace it with ours.
 	f:DockPadding( S.pad, K.titleH + S.pad, S.pad, S.pad )
@@ -84,7 +97,7 @@ function UI.Frame( w, h, title, opts )
 		UI.Shadow( K.radius, 0, 0, fw, fh )
 		UI.BlurRect( K.radius, 0, 0, fw, fh )
 		UI.Rect( K.radius, 0, 0, fw, fh, C.bg )
-		UI.RectTop( K.radius, 0, 0, fw, K.titleH, C.titleBar )
+		UI.RectGrad( K.radius, 0, 0, fw, K.titleH, C.titleBar, 12 )
 		surface.SetDrawColor( C.accent )
 		surface.DrawRect( 0, K.titleH - 2, fw, 2 )
 		draw.SimpleText( string.upper( title or "" ), "SWRP.Title",
@@ -132,21 +145,29 @@ function UI.Button( parent, text, variant, onClick )
 
 	b.Paint = function( self, w, h )
 		local C, K = T().colors, T().kit
-		local hf = UI.HoverFrac( self )
+		local hf    = UI.HoverFrac( self )
+		local down  = self:IsDown()
+		local press = down and 1 or 0   -- press: darken + nudge the label
 
-		if variant == "primary" then
-			UI.Rect( K.radius, 0, 0, w, h, UI.Blend( C.accent, C.accentHi, hf ) )
-			draw.SimpleText( text, "SWRP.Button", w / 2, h / 2, C.white,
-				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-		elseif variant == "danger" then
-			UI.Rect( K.radius, 0, 0, w, h, UI.Blend( C.danger, C.dangerHi, hf ) )
-			draw.SimpleText( text, "SWRP.Button", w / 2, h / 2, C.white,
+		if variant == "primary" or variant == "danger" then
+			local base = variant == "danger" and C.danger or C.accent
+			local hi   = variant == "danger" and C.dangerHi or C.accentHi
+
+			if hf > 0.02 and not down then
+				UI.Glow( K.radius, 0, 0, w, h,
+					ColorAlpha( base, 90 * hf ), 10, 14 )
+			end
+			UI.RectGrad( K.radius, 0, 0, w, h, UI.Blend( base, hi, hf ), down and 6 or 22 )
+			if down then UI.Rect( K.radius, 0, 0, w, h, Color( 0, 0, 0, 50 ) ) end
+
+			draw.SimpleText( text, "SWRP.Button", w / 2, h / 2 + press, C.white,
 				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 		else -- ghost
 			UI.Rect( K.radius, 0, 0, w, h, UI.Blend( C.bgLight, C.bgRaised, hf ) )
+			if down then UI.Rect( K.radius, 0, 0, w, h, Color( 0, 0, 0, 40 ) ) end
 			surface.SetDrawColor( UI.Blend( C.divider, C.accent, hf ) )
 			surface.DrawOutlinedRect( 0, 0, w, h, 1 )
-			draw.SimpleText( text, "SWRP.Button", w / 2, h / 2,
+			draw.SimpleText( text, "SWRP.Button", w / 2, h / 2 + press,
 				UI.Blend( C.textDim, C.text, hf ),
 				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
 		end
@@ -264,14 +285,7 @@ function UI.Table( parent, columns )
 	local scroll = vgui.Create( "DScrollPanel", wrap )
 	scroll:Dock( FILL )
 	scroll:DockMargin( 0, 6, 0, 0 )
-
-	local sbar = scroll:GetVBar()
-	sbar:SetWide( 6 )
-	sbar.Paint = nil
-	sbar.btnUp.Paint, sbar.btnDown.Paint = nil, nil
-	sbar.btnGrip.Paint = function( self, w, h )
-		UI.Rect( 3, 0, 0, w, h, T().colors.bgRaised )
-	end
+	UI.Scrollbar( scroll )
 
 	local tbl = { wrap = wrap, scroll = scroll }
 
@@ -471,6 +485,10 @@ function UI.Terminal()
 	t:ShowCloseButton( false )
 	t:MakePopup()
 
+	-- Ease in (fade only — the terminal owns the whole screen).
+	t:SetAlpha( 0 )
+	t:AlphaTo( 255, 0.14 )
+
 	local gradUp = Material( "vgui/gradient-u" )
 	t.Paint = function( self, w, h )
 		local C = T().colors
@@ -518,7 +536,25 @@ function UI.Terminal()
 	tabBar:Dock( FILL )
 	-- 210: clears the "GRAND ARMY COMMAND" brand sublabel (collided at 130).
 	tabBar:DockMargin( 210, 0, 90, 0 )
-	tabBar.Paint = nil
+
+	-- SLIDING active indicator: one glowing underline that eases between tabs
+	-- (per-button static underlines snap — the Derma feel).
+	tabBar.Paint = function( self, w, h )
+		local active = t._tabs[ t._active ]
+		if not ( active and IsValid( active.button ) ) then return end
+
+		local C  = T().colors
+		local bx = active.button:GetX()
+		local bw = active.button:GetWide()
+		local tx, tw = bx + 12, bw - 24
+
+		self._ulX = Lerp( RealFrameTime() * 14, self._ulX or tx, tx )
+		self._ulW = Lerp( RealFrameTime() * 14, self._ulW or tw, tw )
+
+		UI.Glow( 2, self._ulX, h - 3, self._ulW, 2, ColorAlpha( C.accent, 120 ), 8, 12 )
+		surface.SetDrawColor( C.accent )
+		surface.DrawRect( self._ulX, h - 3, self._ulW, 2 )
+	end
 
 	local content = vgui.Create( "DPanel", t )
 	content:Dock( FILL )
@@ -532,7 +568,10 @@ function UI.Terminal()
 		self._active = name
 		self.Content:Clear()
 		local tab = self._tabs[ name ]
-		if tab then tab.build( self.Content ) end
+		if tab then
+			tab.build( self.Content )
+			UI.FadeIn( self.Content, 0, 0.14 )   -- tab transition
+		end
 	end
 
 	function t:AddTab( name, build )
@@ -554,10 +593,6 @@ function UI.Terminal()
 			draw.SimpleText( label, "SWRP.Nav", w / 2, h / 2,
 				on and C.white or UI.Blend( C.textDim, C.text, hf ),
 				TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-			if on then
-				surface.SetDrawColor( C.accent )
-				surface.DrawRect( 10, h - 3, w - 20, 2 )
-			end
 		end
 		b.DoClick = function() t:Select( name ) end
 
@@ -595,6 +630,7 @@ function UI.ContextMenu( items )
 	end
 
 	menu:Open()
+	UI.PopIn( menu, 0, 6 )
 	return menu
 end
 
@@ -849,4 +885,78 @@ end
 function UI.BlurRect( rad, x, y, w, h )
 	local R = SWRP.RNDX
 	if R then R.DrawBlur( x, y, w, h, 0, rad, rad, rad, rad ) return end
+end
+
+--------------------------------------------------------------------------------
+-- Motion & depth layer ("it must not feel like Derma")
+--
+-- Every surface animates in, interactive elements glow and depress, lists
+-- stagger, dialogs float over a dimmed veil. All durations are short
+-- (120-220ms) — motion you feel, never wait for.
+--------------------------------------------------------------------------------
+
+local sheenMat = Material( "vgui/gradient-u" )
+
+-- Rounded rect with a top-light sheen (subtle vertical gradient = depth).
+function UI.RectGrad( rad, x, y, w, h, col, sheen )
+	UI.Rect( rad, x, y, w, h, col )
+	local R = SWRP.RNDX
+	if not R then return end
+	R().Rect( x, y, w, h ):Rad( rad ):Material( sheenMat )
+		:Color( 255, 255, 255, sheen or 16 ):Draw()
+end
+
+-- Colored outer glow (hover emphasis on primary actions, active indicators).
+function UI.Glow( rad, x, y, w, h, col, spread, intensity )
+	local R = SWRP.RNDX
+	if not R then return end
+	R.DrawShadows( rad, x, y, w, h, col, spread or 12, intensity or 16 )
+end
+
+-- Fade-in for DOCKED elements (docking owns position; alpha is ours).
+function UI.FadeIn( panel, delay, dur )
+	panel:SetAlpha( 0 )
+	panel:AlphaTo( 255, dur or 0.18, delay or 0 )
+end
+
+-- Fade + upward slide for FLOATING elements (frames, menus, toasts).
+function UI.PopIn( panel, delay, dist )
+	local x, y = panel:GetPos()
+	panel:SetAlpha( 0 )
+	panel:AlphaTo( 255, 0.16, delay or 0 )
+	panel:SetPos( x, y + ( dist or 14 ) )
+	panel:MoveTo( x, y, 0.2, delay or 0, 0.3 )
+end
+
+-- Stagger delay for the i-th list item (capped so long lists don't crawl).
+function UI.Stagger( i )
+	return math.min( ( i - 1 ) * 0.025, 0.25 )
+end
+
+-- Dimmed fullscreen veil behind a dialog. Removed via the returned handle.
+function UI.Veil()
+	local v = vgui.Create( "DPanel" )
+	v:SetSize( ScrW(), ScrH() )
+	v:SetPos( 0, 0 )
+	v:SetMouseInputEnabled( true )   -- swallow clicks behind the dialog
+	v.Paint = function( self, w, h )
+		surface.SetDrawColor( 8, 11, 20, 150 )
+		surface.DrawRect( 0, 0, w, h )
+	end
+	v:SetAlpha( 0 )
+	v:AlphaTo( 255, 0.15 )
+	return v
+end
+
+-- One thin, quiet scrollbar everywhere (the chunky DVScrollBar is the
+-- loudest "this is Derma" tell).
+function UI.Scrollbar( scrollPanel )
+	local sbar = scrollPanel:GetVBar()
+	sbar:SetWide( 4 )
+	sbar:SetHideButtons( true )
+	sbar.Paint = nil
+	sbar.btnGrip.Paint = function( self, w, h )
+		UI.Rect( 2, 0, 0, w, h, T().colors.bgRaised )
+	end
+	return sbar
 end

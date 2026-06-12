@@ -92,7 +92,10 @@ local function rebuild()
 
 	state.list:Clear()
 
-	local needle = string.lower( state.filter )
+	local needle  = string.lower( state.filter )
+	local animate = state.animate
+	state.animate = false   -- stagger only the first render per tab-open
+	local n = 0
 
 	for _, row in ipairs( data.rows ) do
 		local visible = needle == ""
@@ -146,6 +149,8 @@ local function rebuild()
 			end
 
 			state.list:AddItem( r )
+			n = n + 1
+			if animate then SWRP.UI.FadeIn( r, SWRP.UI.Stagger( n ) ) end
 		end
 	end
 end
@@ -166,6 +171,7 @@ local function openInvitePicker()
 
 	local scroll = vgui.Create( "DScrollPanel", f.Body )
 	scroll:Dock( FILL )
+	SWRP.UI.Scrollbar( scroll )
 
 	local any = false
 	for _, p in ipairs( player.GetAll() ) do
@@ -269,14 +275,9 @@ UI.RegisterMenuTab( {
 		local list = vgui.Create( "DScrollPanel", panel )
 		list:Dock( FILL )
 		list:DockMargin( 0, 0, rosterCap, 0 )
-		local sbar = list:GetVBar()
-		sbar:SetWide( 6 )
-		sbar.Paint = nil
-		sbar.btnUp.Paint, sbar.btnDown.Paint = nil, nil
-		sbar.btnGrip.Paint = function( self, w, h )
-			draw.RoundedBox( 3, 0, 0, w, h, C.bgRaised )
-		end
-		state.list = list
+		SWRP.UI.Scrollbar( list )
+		state.list    = list
+		state.animate = true
 
 		rebuild()
 		SWRP.Net.Send( "swrp.battalion.roster_request", {} )

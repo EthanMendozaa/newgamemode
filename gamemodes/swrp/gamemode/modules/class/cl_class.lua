@@ -20,6 +20,7 @@ local function rebuild()
 	state.grid:Clear()
 
 	local data = state.data
+	local n = 0
 
 	for _, c in ipairs( data.classes ) do
 		-- Model thumb from the shared registry (assignment -> resolved models).
@@ -56,6 +57,8 @@ local function rebuild()
 		card:Dock( LEFT )
 		card:SetWide( math.floor( ( ScrW() - SWRP.Theme.spacing.termX * 2 ) / 4 ) - 22 )
 		card:DockMargin( 0, 0, 22, 0 )
+		n = n + 1
+		UI.FadeIn( card, UI.Stagger( n ) )
 	end
 end
 
