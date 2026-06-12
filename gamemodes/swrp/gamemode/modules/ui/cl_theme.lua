@@ -46,6 +46,22 @@ SWRP.Theme = {
 		dangerTx  = Color( 224, 138, 128 ),
 		success   = Color( 63, 174, 98 ),
 
+		-- v6 (AotR) — thin-stroke cells + coded accents
+		cell        = Color( 17, 24, 41, 235 ),    -- cell fill (slot cells, news posts)
+		cellBorder  = Color( 52, 66, 100, 255 ),   -- the 1px cell stroke
+		presence    = Color( 92, 200, 120 ),       -- identity line / live presence / ON states
+		presenceDim = Color( 70, 145, 95 ),
+
+		-- Rarity ramp (item frames, season tiers — defined once, Phase B+ consumes)
+		rarity = {
+			common    = Color( 130, 138, 152 ),
+			uncommon  = Color( 65, 105, 225 ),
+			rare      = Color( 224, 164, 70 ),
+			epic      = Color( 210, 74, 62 ),
+			exotic    = Color( 196, 78, 198 ),
+			legendary = Color( 142, 86, 230 ),
+		},
+
 		-- Vitals + misc
 		health    = Color( 95, 200, 120 ),
 		healthLow = Color( 230, 90, 80 ),
@@ -66,7 +82,7 @@ SWRP.Theme = {
 	},
 
 	kit = {
-		radius   = 6,
+		radius   = 2,     -- v6: sharp tactical corners (AotR language)
 		titleH   = 44,    -- dialog title bar
 		btnH     = 36,
 		navH     = 64,    -- terminal nav strip height
@@ -76,6 +92,7 @@ SWRP.Theme = {
 		blur     = 4,
 		hoverSpd = 10,
 		avatar   = 34,    -- roster avatar size
+		identH   = 34,    -- terminal identity strip (v6)
 	},
 
 	overhead = {

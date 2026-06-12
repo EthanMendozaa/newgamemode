@@ -840,7 +840,7 @@ end
 function UI.Rect( rad, x, y, w, h, col )
 	local R = SWRP.RNDX
 	if R then R.Draw( rad, x, y, w, h, col ) return end
-	UI.Rect( rad, x, y, w, h, col )
+	draw.RoundedBox( rad, x, y, w, h, col )
 end
 
 -- Top-corners-only rounded rect (title bars, header bands).
