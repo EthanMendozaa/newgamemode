@@ -974,6 +974,7 @@ end
 ]]
 function UI.SlotCell( parent, label )
 	local cell = vgui.Create( "DPanel", parent )
+	local labelUp = string.upper( label )
 	cell._value = "—"
 
 	function cell:SetValue( v, col ) self._value, self._valueCol = v, col end
@@ -982,7 +983,7 @@ function UI.SlotCell( parent, label )
 
 	cell.Paint = function( self, w, h )
 		local C, K = T().colors, T().kit
-		draw.SimpleText( string.upper( label ), "SWRP.Label", 1, 0, C.label )
+		draw.SimpleText( labelUp, "SWRP.Label", 1, 0, C.label )
 
 		local by = 18   -- box starts under the micro-label
 		UI.Rect( K.radius, 0, by, w, h - by, C.cell )
@@ -1019,11 +1020,18 @@ function UI.RingGauge( parent )
 
 	ring.Paint = function( self, w, h )
 		local C = T().colors
-		local d = math.min( w, h ) - 8
 		self._anim = Lerp( RealFrameTime() * 6, self._anim, self._frac )
 
-		UI.Ring( w / 2, h / 2, d, 4, 1, C.hairline )                       -- track
-		UI.Ring( w / 2, h / 2, d, 4, self._anim, self._color or C.accent ) -- fill
+		if SWRP.RNDX then
+			local d = math.min( w, h ) - 8
+			UI.Ring( w / 2, h / 2, d, 4, 1, C.hairline )                       -- track
+			UI.Ring( w / 2, h / 2, d, 4, self._anim, self._color or C.accent ) -- fill
+		else
+			-- No shader arcs: an honest bar beats a ring stuck at 100%.
+			local frac = math.Clamp( self._anim, 0, 1 )
+			UI.Rect( 2, 8, h - 12, w - 16, 4, C.hairline )
+			UI.Rect( 2, 8, h - 12, ( w - 16 ) * frac, 4, self._color or C.accent )
+		end
 
 		draw.SimpleText( tostring( self._big ), "SWRP.Display", w / 2,
 			h / 2 - ( self._small and 10 or 0 ),
