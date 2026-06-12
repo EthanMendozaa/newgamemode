@@ -120,6 +120,8 @@ hook.Add( "ScoreboardShow", "SWRP.HUD.Scoreboard", function()
 	board.Paint = function( self, pw, ph )
 		UI.DrawBlur( self, theme.kit.blur )
 		SWRP.UI.Rect( theme.kit.radius, 0, 0, pw, ph, C.bg )
+		surface.SetDrawColor( C.cellBorder )
+		surface.DrawOutlinedRect( 0, 0, pw, ph, 1 )
 
 		-- Server band
 		SWRP.UI.RectTop( theme.kit.radius, 0, 0, pw, 54, C.titleBar )

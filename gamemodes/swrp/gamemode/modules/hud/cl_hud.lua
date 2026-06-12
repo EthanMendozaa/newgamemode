@@ -34,6 +34,8 @@ hook.Add( "HUDPaint", "SWRP.HUD.Plate", function()
 	local y    = ScrH() - S.margin - h
 
 	SWRP.UI.Rect( T.kit.radius, x, y, w, h, C.bg )
+	surface.SetDrawColor( C.cellBorder )
+	surface.DrawOutlinedRect( x, y, w, h, 1 )
 	surface.SetDrawColor( C.accent )
 	surface.DrawRect( x, y, T.kit.accentW, h )
 
@@ -86,6 +88,8 @@ hook.Add( "HUDPaint", "SWRP.HUD.Plate", function()
 			local ay     = ScrH() - S.margin - ah
 
 			SWRP.UI.Rect( T.kit.radius, ax, ay, aw, ah, C.bg )
+			surface.SetDrawColor( C.cellBorder )
+			surface.DrawOutlinedRect( ax, ay, aw, ah, 1 )
 			surface.SetDrawColor( C.accent )
 			surface.DrawRect( ax + aw - T.kit.accentW, ay, T.kit.accentW, ah )
 
