@@ -777,23 +777,52 @@ function UI.ModelView( parent, model )
 end
 
 --[[
-	Class card (v4): big model thumb on top, name + stats, one CTA bar.
-	data = { name, tag, health, armor, max, used, eligible, reason, current,
+	Class card (v6): full-height trooper column — model fills the column,
+	labeled stat cells + one CTA bar at the bottom.
+	data = { name, health, armor, max, used, eligible, reason, current,
 	         model, onUse }
 ]]
 function UI.ClassCard( parent, data )
-	local theme = T()
-
 	local card = vgui.Create( "DPanel", parent )
 	card:SetAlpha( ( data.eligible or data.current ) and 255 or 150 )
 
 	card.Paint = function( self, w, h )
 		local C, K = T().colors, T().kit
-		UI.Rect( K.radius, 0, 0, w, h, C.bgLight )
-		surface.SetDrawColor( data.current and C.gold or C.divider )
+		UI.Rect( K.radius, 0, 0, w, h, C.cell )
+		surface.SetDrawColor( data.current and C.gold or C.cellBorder )
 		surface.DrawOutlinedRect( 0, 0, w, h, 1 )
 	end
 
+	-- Info block first (Dock BOTTOM), then the thumb FILLs the rest.
+	local info = vgui.Create( "DPanel", card )
+	info:Dock( BOTTOM )
+	info:SetTall( 150 )
+	info.Paint = function( self, w, h )
+		local C, K = T().colors, T().kit
+		draw.SimpleText( string.upper( data.name ), "SWRP.Name", 16, 10, C.text )
+
+		-- Labeled stat cells (the v6 slot-cell language)
+		local cells = { { "HP", data.health }, { "ARMOR", data.armor } }
+		if data.max then
+			cells[ #cells + 1 ] = { "SLOTS", ( data.used or 0 ) .. "/" .. data.max }
+		end
+		local cw = math.floor( ( w - 32 - ( #cells - 1 ) * 8 ) / #cells )
+		local x  = 16
+		for _, cell in ipairs( cells ) do
+			UI.Rect( K.radius, x, 44, cw, 40, C.bg )
+			surface.SetDrawColor( C.cellBorder )
+			surface.DrawOutlinedRect( x, 44, cw, 40, 1 )
+			draw.SimpleText( cell[ 1 ], "SWRP.Label", x + cw / 2, 52, C.label,
+				TEXT_ALIGN_CENTER )
+			draw.SimpleText( tostring( cell[ 2 ] ), "SWRP.Sub", x + cw / 2, 68,
+				C.textBlue, TEXT_ALIGN_CENTER )
+			x = x + cw + 8
+		end
+	end
+
+	-- Full-body model column. No SetCamPos override — the v4 override
+	-- (Vector( 64, 4, 42 )) zoomed into the torso; ModelView's default frames
+	-- the whole body.
 	local thumb = vgui.Create( "DPanel", card )
 	thumb:Dock( FILL )
 	thumb:DockMargin( 1, 1, 1, 0 )
@@ -801,34 +830,9 @@ function UI.ClassCard( parent, data )
 		surface.SetDrawColor( T().colors.modelBg )
 		surface.DrawRect( 0, 0, w, h )
 	end
-
 	if data.model then
 		local mdl = UI.ModelView( thumb, data.model )
 		mdl:Dock( FILL )
-		mdl:SetCamPos( Vector( 64, 4, 42 ) )
-	end
-
-	-- 118 tall: title 12, stats 46, CTA 64..98 — playtest showed the CTA's top
-	-- border striking through the stats line at 96.
-	local info = vgui.Create( "DPanel", card )
-	info:Dock( BOTTOM )
-	info:SetTall( 118 )
-	info.Paint = function( self, w, h )
-		local C = T().colors
-		local title = string.upper( data.name )
-		draw.SimpleText( title, "SWRP.Name", 16, 10, C.text )
-
-		local x = 16
-		local function stat( label, v )
-			draw.SimpleText( label .. " ", "SWRP.Label", x, 44, C.label )
-			surface.SetFont( "SWRP.Label" )
-			local lw = surface.GetTextSize( label .. " " )
-			draw.SimpleText( tostring( v ), "SWRP.Small", x + lw, 42, C.textBlue )
-			x = x + lw + 46
-		end
-		stat( "HP", data.health )
-		stat( "ARMOR", data.armor )
-		if data.max then stat( "SLOTS", ( data.used or 0 ) .. "/" .. data.max ) end
 	end
 
 	local cta = vgui.Create( "DButton", info )

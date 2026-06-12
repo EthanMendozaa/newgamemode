@@ -55,7 +55,9 @@ local function rebuild()
 		} )
 
 		card:Dock( LEFT )
-		card:SetWide( math.floor( ( ScrW() - SWRP.Theme.spacing.termX * 2 ) / 4 ) - 22 )
+		card:SetWide( math.floor(
+			( ScrW() - SWRP.Theme.spacing.termX * 2 )
+			/ math.max( #data.classes, 4 ) ) - 22 )
 		card:DockMargin( 0, 0, 22, 0 )
 		n = n + 1
 		UI.FadeIn( card, UI.Stagger( n ) )
@@ -86,11 +88,10 @@ UI.RegisterMenuTab( {
 				"SWRP.Label", 246, h / 2, C.label, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
 		end
 
-		-- Fixed-height card row (Dock FILL made cards span the whole screen
-		-- height in playtest — comically tall).
+		-- Full-height trooper columns (v6 — the model owns the column; the
+		-- old torso-zoom came from a ClassCard cam override, now removed).
 		local grid = vgui.Create( "DPanel", panel )
-		grid:Dock( TOP )
-		grid:SetTall( math.Clamp( math.floor( ScrH() * 0.46 ), 360, 480 ) )
+		grid:Dock( FILL )
 		grid.Paint = nil
 		state.grid = grid
 
