@@ -53,7 +53,10 @@ function Battalion.SendRoster( ply )
 			end
 
 			-- v6 unit panel: clients map lore slots to holders from the payload.
-			local loreId = rec and rec.lore_id or r.lore_id
+			-- The live record wins INCLUDING its nil (a falsy chain would resurrect
+			-- a just-released slot from the stale SELECT row).
+			local loreId = r.lore_id
+			if rec then loreId = rec.lore_id end
 			if loreId == "NULL" or loreId == "" then loreId = nil end
 
 			out[ #out + 1 ] = {
