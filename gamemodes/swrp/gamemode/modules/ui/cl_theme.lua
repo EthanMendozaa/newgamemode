@@ -1,6 +1,6 @@
 --[[----------------------------------------------------------------------------
-	UI module (client) — the "Republic Terminal" theme (v4, approved via
-	research-driven mockups).
+	UI module (client) — the "Republic Terminal" theme (v6 "AotR" —
+	sharp cells, coded accents).
 
 	EVERY color, font, and spacing in SWRP UI comes from this table
 	(invariant 7). No drawing code hardcodes visuals; reskinning the gamemode

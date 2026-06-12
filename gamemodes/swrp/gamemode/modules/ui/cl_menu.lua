@@ -1,5 +1,5 @@
 --[[----------------------------------------------------------------------------
-	UI module (client) — the Republic Terminal (v4, approved via mockups).
+	UI module (client) — the Republic Terminal (v6 "AotR" layout).
 
 	Full-screen translucent layer (the non-DarkRP SWRP genre standard) with a
 	caps top-nav. Modules plug in via the same declarative API as before:
@@ -7,8 +7,8 @@
 	  SWRP.UI.RegisterMenuTab{ id, name, order, build = function( panel ) end }
 
 	Opens on F4 (relayed via sh_ui) or `swrp_menu`; F4/ESC closes. Ships with
-	the built-in Character tab: live player model + identity statement + airy
-	fact rows + chain of command. No action buttons by design.
+	the built-in Loadout tab (v6): slot cells flanking the live model, service
+	ring, HP/armor vitals, and the holonet news zone.
 ------------------------------------------------------------------------------]]
 
 SWRP.UI = SWRP.UI or {}
@@ -175,6 +175,8 @@ UI.RegisterMenuTab( {
 
 		-- Live updates (identity/class can change while the menu is open)
 		hero.Think = function()
+			-- Respawns can swap the playermodel while the menu is open.
+			if mdl:GetModel() ~= lp:GetModel() then mdl:SetModel( lp:GetModel() ) end
 			local battalion = Character.GetBattalion( lp )
 			local rank      = Character.GetRank( lp )
 			batCell:SetValue( battalion and battalion.name or "Unassigned",
