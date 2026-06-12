@@ -960,3 +960,79 @@ function UI.Scrollbar( scrollPanel )
 	end
 	return sbar
 end
+
+--------------------------------------------------------------------------------
+-- v6 "AotR" components
+--------------------------------------------------------------------------------
+
+--[[
+	UI.SlotCell( parent, label ) — labeled thin-stroke cell (the AotR equipment
+	slot language). Size/dock it yourself.
+	  cell:SetValue( text, color )  -- centered main line
+	  cell:SetSub( text )           -- small second line (optional)
+	  cell:SetAccent( color )       -- border tint (gold = lore, presence = equipped)
+]]
+function UI.SlotCell( parent, label )
+	local cell = vgui.Create( "DPanel", parent )
+	cell._value = "—"
+
+	function cell:SetValue( v, col ) self._value, self._valueCol = v, col end
+	function cell:SetSub( s )        self._sub = s end
+	function cell:SetAccent( c )     self._accent = c end
+
+	cell.Paint = function( self, w, h )
+		local C, K = T().colors, T().kit
+		draw.SimpleText( string.upper( label ), "SWRP.Label", 1, 0, C.label )
+
+		local by = 18   -- box starts under the micro-label
+		UI.Rect( K.radius, 0, by, w, h - by, C.cell )
+		surface.SetDrawColor( self._accent or C.cellBorder )
+		surface.DrawOutlinedRect( 0, by, w, h - by, 1 )
+
+		local cy = by + ( h - by ) / 2
+		draw.SimpleText( tostring( self._value ), "SWRP.Sub", w / 2,
+			cy - ( self._sub and 8 or 0 ),
+			self._valueCol or C.text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		if self._sub then
+			draw.SimpleText( self._sub, "SWRP.Small", w / 2, cy + 12,
+				C.textDim, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		end
+	end
+
+	return cell
+end
+
+--[[
+	UI.RingGauge( parent ) — circular gauge (the AotR level ring). Square panel;
+	size it yourself, the ring fits the smaller dimension.
+	  ring:SetFraction( f )          -- 0..1, eases toward the target
+	  ring:SetCenter( big, small )   -- center statement + micro-label
+	  ring:SetColor( col )           -- arc color (default accent)
+]]
+function UI.RingGauge( parent )
+	local ring = vgui.Create( "DPanel", parent )
+	ring._frac, ring._anim, ring._big = 0, 0, ""
+
+	function ring:SetFraction( f )        self._frac = math.Clamp( f or 0, 0, 1 ) end
+	function ring:SetCenter( big, small ) self._big, self._small = big, small end
+	function ring:SetColor( c )           self._color = c end
+
+	ring.Paint = function( self, w, h )
+		local C = T().colors
+		local d = math.min( w, h ) - 8
+		self._anim = Lerp( RealFrameTime() * 6, self._anim, self._frac )
+
+		UI.Ring( w / 2, h / 2, d, 4, 1, C.hairline )                       -- track
+		UI.Ring( w / 2, h / 2, d, 4, self._anim, self._color or C.accent ) -- fill
+
+		draw.SimpleText( tostring( self._big ), "SWRP.Display", w / 2,
+			h / 2 - ( self._small and 10 or 0 ),
+			C.gold, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		if self._small then
+			draw.SimpleText( string.upper( self._small ), "SWRP.Label", w / 2, h / 2 + 22,
+				C.label, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
+		end
+	end
+
+	return ring
+end
