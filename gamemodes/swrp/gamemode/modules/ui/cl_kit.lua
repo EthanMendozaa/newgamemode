@@ -474,9 +474,8 @@ function UI.Terminal()
 	local gradUp = Material( "vgui/gradient-u" )
 	t.Paint = function( self, w, h )
 		local C = T().colors
-		UI.DrawBlur( self, T().kit.blur )
-		-- Smooth terminal layer: base + top-lightening gradient (the old
-		-- two-rect split drew a visible seam across mid-screen).
+		-- Opaque designed surface (matches the mockups; no world bleed, no
+		-- blur cost). Base + top-lightening gradient = seamless navy ramp.
 		surface.SetDrawColor( C.termBot )
 		surface.DrawRect( 0, 0, w, h )
 		surface.SetDrawColor( C.termTop )

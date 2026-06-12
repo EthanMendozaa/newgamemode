@@ -14,9 +14,11 @@
 
 SWRP.Theme = {
 	colors = {
-		-- Terminal layers (translucent — the world stays visible behind)
-		termTop   = Color( 20, 29, 51, 247 ),    -- gradient top
-		termBot   = Color( 11, 16, 30, 251 ),    -- gradient bottom
+		-- Terminal layers — OPAQUE: the mockups read as a designed navy
+		-- surface, not a wash over the world (playtest matched the mocks only
+		-- after this change).
+		termTop   = Color( 20, 29, 51, 255 ),    -- gradient top
+		termBot   = Color( 11, 16, 30, 255 ),    -- gradient bottom
 		bg        = Color( 16, 24, 43, 250 ),    -- dialog window background
 		bgLight   = Color( 24, 34, 56, 250 ),    -- cards / rows
 		bgRaised  = Color( 34, 46, 74, 250 ),    -- hover / raised elements
@@ -84,26 +86,30 @@ SWRP.Theme = {
 
 --------------------------------------------------------------------------------
 -- Fonts (the only place fonts are created)
+--
+-- Display faces use Barlow Condensed (shipped in content/resource/fonts,
+-- OFL) — the tall, tight military face the mockups were designed around.
+-- Body/readables stay Roboto.
 --------------------------------------------------------------------------------
 
 surface.CreateFont( "SWRP.Display", {   -- identity statements (CT-4456 "PARA")
-	font = "Roboto", size = 36, weight = 700, antialias = true,
+	font = "Barlow Condensed SemiBold", size = 44, weight = 600, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.H2", {        -- section titles (501ST LEGION)
-	font = "Roboto", size = 24, weight = 700, antialias = true,
+	font = "Barlow Condensed SemiBold", size = 30, weight = 600, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.Nav", {       -- terminal nav tabs
-	font = "Roboto", size = 18, weight = 700, antialias = true,
+	font = "Barlow Condensed SemiBold", size = 22, weight = 600, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.Title", {     -- dialog titles
-	font = "Roboto", size = 20, weight = 700, antialias = true,
+	font = "Barlow Condensed SemiBold", size = 24, weight = 600, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.Name", {      -- HUD plate name, card titles
-	font = "Roboto", size = 22, weight = 700, antialias = true,
+	font = "Barlow Condensed SemiBold", size = 26, weight = 600, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.Fact", {      -- fact-row values
@@ -135,9 +141,9 @@ surface.CreateFont( "SWRP.OverheadSub", {
 } )
 
 surface.CreateFont( "SWRP.Ammo", {      -- HUD ammo count
-	font = "Roboto", size = 30, weight = 700, antialias = true,
+	font = "Barlow Condensed SemiBold", size = 36, weight = 600, antialias = true,
 } )
 
 surface.CreateFont( "SWRP.Digit", {     -- designation picker digit boxes
-	font = "Roboto", size = 34, weight = 700, antialias = true,
+	font = "Barlow Condensed SemiBold", size = 42, weight = 600, antialias = true,
 } )

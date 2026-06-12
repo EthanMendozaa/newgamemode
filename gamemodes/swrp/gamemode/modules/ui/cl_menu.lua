@@ -74,8 +74,10 @@ UI.RegisterMenuTab( {
 		modelWrap:SetWide( math.floor( ScrW() * 0.18 ) )
 		modelWrap:DockMargin( 0, 0, 40, 0 )
 		modelWrap.Paint = function( self, w, h )
-			surface.SetDrawColor( C.modelBg )
-			surface.DrawRect( 0, 0, w, h )
+			-- Rounded, hairline-bordered backdrop (mockup panel treatment).
+			SWRP.UI.Rect( theme.kit.radius, 0, 0, w, h, C.modelBg )
+			surface.SetDrawColor( C.divider )
+			surface.DrawOutlinedRect( 0, 0, w, h, 1 )
 		end
 
 		local mdl = UI.ModelView( modelWrap, lp:GetModel() )
