@@ -320,3 +320,9 @@ Config.RegisterSetting( "server_id", {
 	default = "main",
 	desc    = "Stable identity of this server for cross-server sync.",
 } )
+
+Config.RegisterSetting( "staff_groups", {
+	type    = "table",
+	default = { "superadmin" },
+	desc    = "Usergroups treated as gamemode staff (works with any admin mod: SAM, ULX, ServerGuard...). CAMI inheritance to superadmin also counts automatically.",
+} )

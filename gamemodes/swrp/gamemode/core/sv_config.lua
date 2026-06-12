@@ -114,7 +114,7 @@ end
 Config.LoadSystem()
 
 concommand.Add( "swrp_reload_config", function( ply )
-	if IsValid( ply ) and not ply:IsSuperAdmin() then
+	if not SWRP.Util.IsStaff( ply ) then
 		log.Warn( "%s tried to reload config without permission", ply:Nick() )
 		return
 	end

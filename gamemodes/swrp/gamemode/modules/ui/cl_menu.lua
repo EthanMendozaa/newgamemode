@@ -81,10 +81,15 @@ UI.RegisterMenuTab( {
 		local mdl = UI.ModelView( modelWrap, lp:GetModel() )
 		mdl:Dock( FILL )
 
-		-- Identity + facts, right ---------------------------------------------
+		-- Identity + facts, right — content capped ~820px wide (playtest: fact
+		-- rows stretched edge-to-edge on wide monitors).
+		local contentW = ScrW() - theme.spacing.termX * 2
+		local modelW   = math.floor( ScrW() * 0.18 )
+		local rightCap = math.max( math.floor( ScrW() * 0.05 ), contentW - modelW - 40 - 820 )
+
 		local right = vgui.Create( "DPanel", panel )
 		right:Dock( FILL )
-		right:DockPadding( 0, 6, math.floor( ScrW() * 0.08 ), 0 )
+		right:DockPadding( 0, 6, rightCap, 0 )
 		right.Paint = nil
 
 		local head = vgui.Create( "DPanel", right )

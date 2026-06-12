@@ -61,6 +61,48 @@ function Util.SafeCall( fn, ... )
 end
 
 --------------------------------------------------------------------------------
+-- Staff detection (admin-mod agnostic)
+--
+-- Never call ply:IsSuperAdmin() directly in gamemode code: admin suites
+-- (SAM, ULX, ServerGuard...) override it, and some error client-side before
+-- their rank data syncs (observed with SAM). This helper:
+--   1. pcall-guards the IsSuperAdmin override,
+--   2. checks the networked usergroup against the staff_groups setting,
+--   3. walks CAMI inheritance (the standard admin-mod interop layer) to
+--      superadmin when a CAMI-registered mod is present.
+--------------------------------------------------------------------------------
+
+function Util.IsStaff( ply )
+	if not IsValid( ply ) then return true end   -- server console
+
+	-- Admin-mod overrides can error mid-init (client); never trust them bare.
+	local ok, super = pcall( ply.IsSuperAdmin, ply )
+	if ok and super == true then return true end
+
+	local group = ""
+	local gok, g = pcall( ply.GetUserGroup, ply )
+	if gok and isstring( g ) then group = g end
+
+	local groups = ( SWRP.Config and SWRP.Config.Get( "staff_groups" ) ) or { "superadmin" }
+	for _, allowed in ipairs( groups ) do
+		if group == allowed then return true end
+	end
+
+	-- CAMI inheritance: any group that ultimately inherits superadmin counts.
+	if CAMI and CAMI.GetUsergroup and group ~= "" then
+		local ug, guard = CAMI.GetUsergroup( group ), 0
+		while ug and guard < 16 do
+			if ug.Name == "superadmin" then return true end
+			if not ug.Inherits or ug.Inherits == ug.Name then break end
+			ug = CAMI.GetUsergroup( ug.Inherits )
+			guard = guard + 1
+		end
+	end
+
+	return false
+end
+
+--------------------------------------------------------------------------------
 -- Player lookup (commands, pickers)
 --------------------------------------------------------------------------------
 

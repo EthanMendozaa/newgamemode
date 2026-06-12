@@ -27,7 +27,7 @@ Commands.Register( "addspawn", {
 	description = "STAFF: print a config line for a battalion spawn at your position",
 	playerOnly  = true,
 	handler = function( ply, args )
-		if not ply:IsSuperAdmin() then
+		if not SWRP.Util.IsStaff( ply ) then
 			Commands.Reply( ply, "Staff only" )
 			return
 		end

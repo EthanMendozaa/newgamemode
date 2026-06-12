@@ -86,7 +86,7 @@ end )
 --------------------------------------------------------------------------------
 
 local function isStaff( ply )
-	return not IsValid( ply ) or ply:IsSuperAdmin()
+	return SWRP.Util.IsStaff( ply )
 end
 
 -- May `ply` offer/strip this slot? Staff: any slot. Officers: can_offer_lore,

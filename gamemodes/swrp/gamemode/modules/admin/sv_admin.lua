@@ -31,7 +31,7 @@ local DB        = SWRP.DB
 local log       = SWRP.Logger( "Admin" )
 
 local function isStaff( ply )
-	return not IsValid( ply ) or ply:IsSuperAdmin()
+	return SWRP.Util.IsStaff( ply )
 end
 
 --------------------------------------------------------------------------------

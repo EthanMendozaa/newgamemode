@@ -19,3 +19,9 @@ SWRP.Config.Set( "respawn_confirmation", true )
 
 -- Digits in a player's chosen designation (3-6).
 SWRP.Config.Set( "designation_digits", 4 )
+
+-- Usergroups treated as gamemode STAFF (record editor, !setrank, lore grants,
+-- config reload...). Works with any admin mod (SAM, ULX, ServerGuard) — list
+-- your admin mod's group names here. Groups that CAMI-inherit superadmin
+-- count automatically.
+SWRP.Config.Set( "staff_groups", { "superadmin" } )

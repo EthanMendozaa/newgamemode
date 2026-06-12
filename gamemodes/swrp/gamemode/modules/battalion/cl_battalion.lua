@@ -222,11 +222,15 @@ UI.RegisterMenuTab( {
 		local C     = theme.colors
 		local lp    = LocalPlayer()
 
+		-- Cap content ~1150px (playtest: rows stretched edge-to-edge on wide
+		-- monitors, putting columns a head-turn apart).
+		local rosterCap = math.max( 0, ( ScrW() - theme.spacing.termX * 2 ) - 1150 )
+
 		-- Header line: battalion statement + counts + search + invite
 		local head = vgui.Create( "DPanel", panel )
 		head:Dock( TOP )
 		head:SetTall( 46 )
-		head:DockMargin( 0, 0, 0, 16 )
+		head:DockMargin( 0, 0, rosterCap, 16 )
 		head.Paint = function( self, w, h )
 			local battalion = Character.GetBattalion( lp )
 			draw.SimpleText( string.upper( battalion and battalion.name or "BATTALION" ),
@@ -264,6 +268,7 @@ UI.RegisterMenuTab( {
 
 		local list = vgui.Create( "DScrollPanel", panel )
 		list:Dock( FILL )
+		list:DockMargin( 0, 0, rosterCap, 0 )
 		local sbar = list:GetVBar()
 		sbar:SetWide( 6 )
 		sbar.Paint = nil

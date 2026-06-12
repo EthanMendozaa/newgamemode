@@ -471,14 +471,17 @@ function UI.Terminal()
 	t:ShowCloseButton( false )
 	t:MakePopup()
 
+	local gradUp = Material( "vgui/gradient-u" )
 	t.Paint = function( self, w, h )
 		local C = T().colors
 		UI.DrawBlur( self, T().kit.blur )
-		-- Two-tone translucent terminal layer (flat, no gradient cost)
-		surface.SetDrawColor( C.termTop )
-		surface.DrawRect( 0, 0, w, math.floor( h * 0.45 ) )
+		-- Smooth terminal layer: base + top-lightening gradient (the old
+		-- two-rect split drew a visible seam across mid-screen).
 		surface.SetDrawColor( C.termBot )
-		surface.DrawRect( 0, math.floor( h * 0.45 ), w, h )
+		surface.DrawRect( 0, 0, w, h )
+		surface.SetDrawColor( C.termTop )
+		surface.SetMaterial( gradUp )
+		surface.DrawTexturedRect( 0, 0, w, math.floor( h * 0.6 ) )
 	end
 
 	-- ESC closes the terminal instead of opening the game menu.
@@ -514,7 +517,8 @@ function UI.Terminal()
 
 	local tabBar = vgui.Create( "DPanel", nav )
 	tabBar:Dock( FILL )
-	tabBar:DockMargin( 130, 0, 90, 0 )
+	-- 210: clears the "GRAND ARMY COMMAND" brand sublabel (collided at 130).
+	tabBar:DockMargin( 210, 0, 90, 0 )
 	tabBar.Paint = nil
 
 	local content = vgui.Create( "DPanel", t )
@@ -685,9 +689,10 @@ end
 function UI.ModelView( parent, model )
 	local mdl = vgui.Create( "DModelPanel", parent )
 	mdl:SetModel( model or "models/player/group01/male_02.mdl" )
-	mdl:SetFOV( 36 )
-	mdl:SetCamPos( Vector( 78, 6, 46 ) )
-	mdl:SetLookAt( Vector( 0, 0, 40 ) )
+	-- Tight full-body framing (playtest: the model floated small in the panel).
+	mdl:SetFOV( 28 )
+	mdl:SetCamPos( Vector( 88, 4, 42 ) )
+	mdl:SetLookAt( Vector( 0, 0, 38 ) )
 	mdl:SetAnimated( false )
 
 	function mdl:LayoutEntity( ent )
@@ -730,13 +735,15 @@ function UI.ClassCard( parent, data )
 		mdl:SetCamPos( Vector( 64, 4, 42 ) )
 	end
 
+	-- 118 tall: title 12, stats 46, CTA 64..98 — playtest showed the CTA's top
+	-- border striking through the stats line at 96.
 	local info = vgui.Create( "DPanel", card )
 	info:Dock( BOTTOM )
-	info:SetTall( 96 )
+	info:SetTall( 118 )
 	info.Paint = function( self, w, h )
 		local C = T().colors
 		local title = string.upper( data.name )
-		draw.SimpleText( title, "SWRP.Name", 16, 14, C.text )
+		draw.SimpleText( title, "SWRP.Name", 16, 10, C.text )
 
 		local x = 16
 		local function stat( label, v )
@@ -754,8 +761,8 @@ function UI.ClassCard( parent, data )
 	local cta = vgui.Create( "DButton", info )
 	cta:SetText( "" )
 	cta:Dock( BOTTOM )
-	cta:SetTall( 34 )
-	cta:DockMargin( 14, 0, 14, 12 )
+	cta:SetTall( 36 )
+	cta:DockMargin( 14, 0, 14, 14 )
 
 	cta.Paint = function( self, w, h )
 		local C, K = T().colors, T().kit

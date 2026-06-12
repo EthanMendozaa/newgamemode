@@ -83,9 +83,11 @@ UI.RegisterMenuTab( {
 				"SWRP.Label", 246, h / 2, C.label, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
 		end
 
+		-- Fixed-height card row (Dock FILL made cards span the whole screen
+		-- height in playtest — comically tall).
 		local grid = vgui.Create( "DPanel", panel )
-		grid:Dock( FILL )
-		grid:DockPadding( 0, 0, 0, math.floor( ScrH() * 0.06 ) )
+		grid:Dock( TOP )
+		grid:SetTall( math.Clamp( math.floor( ScrH() * 0.46 ), 360, 480 ) )
 		grid.Paint = nil
 		state.grid = grid
 

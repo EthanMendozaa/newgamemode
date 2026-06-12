@@ -63,7 +63,7 @@ UI.RegisterMenuTab( {
 		local theme = SWRP.Theme
 		local C     = theme.colors
 
-		if not LocalPlayer():IsSuperAdmin() then
+		if not SWRP.Util.IsStaff( LocalPlayer() ) then
 			local label = vgui.Create( "DLabel", panel )
 			label:SetText( "Restricted to staff." )
 			label:SetFont( "SWRP.Sub" )

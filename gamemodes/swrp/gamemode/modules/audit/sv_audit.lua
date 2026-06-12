@@ -65,7 +65,7 @@ end
 
 -- Quick console inspection until the Phase 4 admin UI exists.
 concommand.Add( "swrp_audit", function( ply )
-	if IsValid( ply ) and not ply:IsSuperAdmin() then return end
+	if not SWRP.Util.IsStaff( ply ) then return end
 
 	SWRP.DB.Query(
 		"SELECT * FROM swrp_audit ORDER BY at DESC LIMIT 20",
