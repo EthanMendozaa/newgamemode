@@ -19,7 +19,7 @@ SWRP.Net.Register( "swrp.battalion.roster_request", {
 	end,
 } )
 
--- Roster payload: { battalion_id, rows = { { id, name, rank_id, designation, online }, ... } }
+-- Roster payload: { battalion_id, rows = { { id, name, rank_id, designation, lore_id, online }, ... } }
 SWRP.Net.Register( "swrp.battalion.roster", {
 	from   = "server",
 	schema = {

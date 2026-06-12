@@ -52,11 +52,16 @@ function Battalion.SendRoster( ply )
 				rankId = SWRP.Lore.EffectiveRankId( r.lore_id ) or rankId
 			end
 
+			-- v6 unit panel: clients map lore slots to holders from the payload.
+			local loreId = rec and rec.lore_id or r.lore_id
+			if loreId == "NULL" or loreId == "" then loreId = nil end
+
 			out[ #out + 1 ] = {
 				id          = r.id,
 				name        = r.rp_name_base,
 				designation = ( r.designation ~= "NULL" ) and r.designation or nil,
 				rank_id     = rankId,
+				lore_id     = loreId,
 				online      = rec ~= nil,
 			}
 		end
@@ -67,7 +72,7 @@ function Battalion.SendRoster( ply )
 			if rec and rec.isBot and rec.battalion_id == battalionId and not seen[ rec.id ] then
 				out[ #out + 1 ] = {
 					id = rec.id, name = rec.rp_name_base, designation = rec.designation,
-					rank_id = rec.rank_id, online = true,
+					rank_id = rec.rank_id, lore_id = rec.lore_id, online = true,
 				}
 			end
 		end
