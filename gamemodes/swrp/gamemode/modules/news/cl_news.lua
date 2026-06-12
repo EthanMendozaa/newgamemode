@@ -27,11 +27,13 @@ function News.BuildFeed( parent )
 		return scroll
 	end
 
+	local PAD_TOP, PAD_BOTTOM = 46, 12   -- header band / breathing room under the body
+
 	for i, post in ipairs( posts ) do
 		local cell = vgui.Create( "DPanel" )
 		cell:Dock( TOP )
 		cell:DockMargin( 0, 0, 0, 10 )
-		cell:DockPadding( 14, 46, 14, 12 )
+		cell:DockPadding( 14, PAD_TOP, 14, PAD_BOTTOM )
 		cell:SetTall( 70 )
 
 		cell.Paint = function( self, w, h )
@@ -52,7 +54,7 @@ function News.BuildFeed( parent )
 		body:Dock( TOP )
 		-- Wrapped height lands after layout; grow the cell to fit.
 		body.OnSizeChanged = function( _, _, bh )
-			cell:SetTall( 46 + bh + 14 )
+			cell:SetTall( PAD_TOP + bh + PAD_BOTTOM )
 		end
 
 		scroll:AddItem( cell )

@@ -25,7 +25,8 @@ local POST_SCHEMA = {
 
 local LINK_SCHEMA = {
 	label = { type = "string", required = true, max = 32 },
-	url   = { type = "string", required = true, max = 256 },
+	url   = { type = "string", required = true, max = 256,
+		validate = function( v ) return string.match( v, "^https?://" ) ~= nil, "must start with http:// or https://" end },
 	color = { type = "color",  default = nil },
 }
 
