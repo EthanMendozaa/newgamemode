@@ -40,7 +40,8 @@ local function toggleRow( parent, def, i )
 			on and C.presence or C.label, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER )
 	end
 
-	row.OnMousePressed = function()
+	row.OnMousePressed = function( _, code )
+		if code ~= MOUSE_LEFT then return end
 		Prefs.Set( def.key, not Prefs.Get( def.key, def.default ) )
 	end
 
@@ -112,15 +113,21 @@ UI.RegisterMenuTab( {
 			draw.SimpleText( "QUICK LINKS", "SWRP.Label", 0, 0, C.label )
 		end
 
+		local linkScroll = vgui.Create( "DScrollPanel", right )
+		linkScroll:Dock( FILL )
+		UI.Scrollbar( linkScroll )
+
 		local links = SWRP.News and SWRP.News.OrderedLinks() or {}
 		for j, link in ipairs( links ) do
-			linkCell( right, link, j )
+			linkCell( linkScroll, link, j )
 		end
 		if #links == 0 then
-			local lbl = vgui.Create( "DLabel", right )
+			local lbl = vgui.Create( "DLabel", linkScroll )
 			lbl:SetFont( "SWRP.Sub" )
 			lbl:SetTextColor( C.textDim )
 			lbl:SetText( "Add links with SWRP.addQuickLink in swrp_customthings/news.lua." )
+			lbl:SetWrap( true )
+			lbl:SetAutoStretchVertical( true )
 			lbl:Dock( TOP )
 		end
 	end,
