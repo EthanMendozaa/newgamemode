@@ -10,6 +10,7 @@ local Character = SWRP.Character
 hook.Add( "HUDPaint", "SWRP.HUD.Overhead", function()
 	local lp = LocalPlayer()
 	if not IsValid( lp ) then return end
+	if SWRP.Prefs and not SWRP.Prefs.Get( "overhead_names", true ) then return end
 
 	local T       = SWRP.Theme
 	local maxDist = T.overhead.distance * T.overhead.distance

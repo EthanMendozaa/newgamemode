@@ -951,14 +951,20 @@ function UI.Glow( rad, x, y, w, h, col, spread, intensity )
 	R.DrawShadows( rad, x, y, w, h, col, spread or 12, intensity or 16 )
 end
 
+local function reducedMotion()
+	return SWRP.Prefs and SWRP.Prefs.Get( "reduced_motion", false ) or false
+end
+
 -- Fade-in for DOCKED elements (docking owns position; alpha is ours).
 function UI.FadeIn( panel, delay, dur )
+	if reducedMotion() then panel:SetAlpha( 255 ) return end
 	panel:SetAlpha( 0 )
 	panel:AlphaTo( 255, dur or 0.18, delay or 0 )
 end
 
 -- Fade + upward slide for FLOATING elements (frames, menus, toasts).
 function UI.PopIn( panel, delay, dist )
+	if reducedMotion() then return end
 	local x, y = panel:GetPos()
 	panel:SetAlpha( 0 )
 	panel:AlphaTo( 255, 0.16, delay or 0 )
@@ -968,6 +974,7 @@ end
 
 -- Stagger delay for the i-th list item (capped so long lists don't crawl).
 function UI.Stagger( i )
+	if reducedMotion() then return 0 end
 	return math.min( ( i - 1 ) * 0.025, 0.25 )
 end
 
