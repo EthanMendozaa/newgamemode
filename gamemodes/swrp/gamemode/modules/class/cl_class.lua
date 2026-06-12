@@ -1,5 +1,5 @@
 --[[----------------------------------------------------------------------------
-	Class module (client) — the Classes terminal tab (v4).
+	Class module (client) — the Classes terminal tab (v6).
 
 	Large model cards, one verb per card ("BECOME MEDIC"), locked classes stay
 	quiet (dim + reason in the CTA slot). Eligibility comes from the server
