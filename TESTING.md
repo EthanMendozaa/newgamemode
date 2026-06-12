@@ -177,3 +177,43 @@ For each issue: **what you did → what you expected → what happened**, plus
 server console output, client console output (`condump` writes a file), and a
 screenshot for anything visual. Paste straight into chat — file:line errors
 are gold.
+
+## UI v6 — "AotR Replication" skin (Phase A)
+
+**Everywhere**
+- [ ] All corners are sharp (~2px); panels read as thin 1px-stroke cells
+- [ ] Green identity line under the nav on EVERY tab: `CT-#### "NAME"` + battalion · rank · class
+- [ ] Tab strip reads LOADOUT · BATTALION · CLASSES · STAFF (staff only) · SETTINGS
+
+**Loadout tab (replaces Character)**
+- [ ] Live model centered; PRIMARY/SIDEARM/EQUIPMENT cells left; ring + BATTALION/RANK/CLASS/LORE cells right
+- [ ] Ring: gold designation centered, green arc fills with service time (10h per lap)
+- [ ] HP/ARMOR bars under the model track damage live
+- [ ] Lore cell goes gold when you hold a slot (`!lore` to claim as staff)
+- [ ] Right zone shows HOLONET NEWS posts from swrp_customthings/news.lua (edit one, `swrp_reload_config`, reopen menu)
+- [ ] Model updates after a class-switch respawn while the menu is open
+
+**Battalion tab**
+- [ ] UNIT COMMAND panel right: Commander (gold when filled / Vacant), Strength, capped-rank cells (e.g. Captain 1/1), lore slots with holder names
+- [ ] Roster rows show a gold lore-slot chip for holders
+- [ ] Search, invite, and the right-click member actions still work
+- [ ] Promote/demote while the tab is open: unit panel updates WITHOUT re-fading
+
+**Classes tab**
+- [ ] Full-height trooper columns; the WHOLE body is visible (no torso zoom)
+- [ ] Check full-body framing at your resolution AND once on an ultrawide/odd aspect if available (fixed camera; cropping would show there first)
+- [ ] Stat cells (HP/ARMOR/SLOTS) above a CTA bar; gold = current, blue = become, dim = locked reason
+
+**Settings tab (new)**
+- [ ] Toggle cells flip ON (green) / OFF and persist across reconnects (data/swrp/prefs.txt)
+- [ ] "Reduce menu motion" kills fades/staggers immediately
+- [ ] "Show overhead name tags" hides/shows overhead names
+- [ ] Quick-link cells open their URLs in the Steam overlay
+
+**Scoreboard / HUD**
+- [ ] Scoreboard, HUD plate, and ammo block have the 1px cell stroke
+
+**Expected (not bugs)**
+- The ring/service bar measure playtime — XP arrives in the progression phase
+- News right zone becomes the inventory grid in Phase B
+- The v4 chain-of-command strip is gone by design (unit panel replaces it)
