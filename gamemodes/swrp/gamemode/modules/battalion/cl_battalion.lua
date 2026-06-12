@@ -175,6 +175,8 @@ local function rebuildUnit()
 	local battalion = Hierarchy.GetBattalion( state.roster.battalion_id )
 	local rows      = state.roster.rows
 
+	local animate = state.animateUnit
+	state.animateUnit = false   -- stagger only the first render per tab-open
 	local n = 0
 	local function cell( label, value, color, accent )
 		n = n + 1
@@ -184,7 +186,7 @@ local function rebuildUnit()
 		c:DockMargin( 0, 0, 0, 12 )
 		c:SetValue( value, color )
 		if accent then c:SetAccent( accent ) end
-		UI.FadeIn( c, UI.Stagger( n ) )
+		if animate then UI.FadeIn( c, UI.Stagger( n ) ) end
 	end
 
 	-- Commander = the virtual-rank holder
@@ -360,6 +362,7 @@ UI.RegisterMenuTab( {
 		SWRP.UI.Scrollbar( list )
 		state.list    = list
 		state.animate = true
+			state.animateUnit = true
 
 		rebuild()
 		rebuildUnit()

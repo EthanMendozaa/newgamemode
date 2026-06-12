@@ -75,7 +75,7 @@ function Battalion.SendRoster( ply )
 			if rec and rec.isBot and rec.battalion_id == battalionId and not seen[ rec.id ] then
 				out[ #out + 1 ] = {
 					id = rec.id, name = rec.rp_name_base, designation = rec.designation,
-					rank_id = rec.rank_id, lore_id = rec.lore_id, online = true,
+					rank_id = rec._effRank or rec.rank_id, lore_id = rec.lore_id, online = true,
 				}
 			end
 		end
