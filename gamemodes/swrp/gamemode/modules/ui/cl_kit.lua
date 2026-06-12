@@ -569,7 +569,7 @@ function UI.Terminal()
 		local desig = Character.GetDesignation( lp )
 		local base  = string.match( Character.GetName( lp ), "(%S+)$" ) or lp:Nick()
 		local left  = ( desig ~= "" and ( "CT-" .. desig .. "  " ) or "" )
-			.. "\xE2\x80\x9C" .. string.upper( base ) .. "\xE2\x80\x9D"
+			.. "“" .. string.upper( base ) .. "”"
 		draw.SimpleText( left, "SWRP.Nav", S.termX, h / 2, C.presence,
 			TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
 
