@@ -16,6 +16,7 @@ local state = {
 	roster = nil,    -- last payload
 	list   = nil,    -- scroll panel
 	head   = nil,    -- header line panel
+	unit   = nil,    -- v6 unit panel (right zone)
 	filter = "",
 }
 
@@ -135,6 +136,13 @@ local function rebuild()
 					nameCol, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
 				draw.SimpleText( rank and rank.name or "—", "SWRP.Small", w * 0.52, h / 2,
 					row.online and C.textDim or C.label, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+				if row.lore_id and SWRP.Lore then
+					local slot = SWRP.Lore.Get( row.lore_id )
+					if slot then
+						draw.SimpleText( slot.name, "SWRP.Label", w * 0.72, h / 2,
+							C.gold, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+					end
+				end
 				draw.SimpleText( row.online and "Online" or "Offline", "SWRP.Small",
 					w - 8, h / 2, row.online and C.success or C.label,
 					TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER )
@@ -155,9 +163,75 @@ local function rebuild()
 	end
 end
 
+--------------------------------------------------------------------------------
+-- Unit panel (v6 right zone): commander, strength, rank caps, lore slots
+--------------------------------------------------------------------------------
+
+local function rebuildUnit()
+	if not ( IsValid( state.unit ) and state.roster ) then return end
+	state.unit:Clear()
+
+	local C = SWRP.Theme.colors
+	local battalion = Hierarchy.GetBattalion( state.roster.battalion_id )
+	local rows      = state.roster.rows
+
+	local n = 0
+	local function cell( label, value, color, accent )
+		n = n + 1
+		local c = UI.SlotCell( state.unit, label )
+		c:Dock( TOP )
+		c:SetTall( 58 )
+		c:DockMargin( 0, 0, 0, 12 )
+		c:SetValue( value, color )
+		if accent then c:SetAccent( accent ) end
+		UI.FadeIn( c, UI.Stagger( n ) )
+	end
+
+	-- Commander = the virtual-rank holder
+	local commander
+	for _, row in ipairs( rows ) do
+		local r = Hierarchy.GetRank( row.rank_id )
+		if r and r.virtual then commander = row break end
+	end
+	cell( "Commander", commander and commander.name or "Vacant",
+		commander and C.gold or C.label, commander and C.gold or nil )
+
+	local online = 0
+	for _, r in ipairs( rows ) do if r.online then online = online + 1 end end
+	cell( "Strength", #rows .. " members · " .. online .. " online",
+		online > 0 and C.presence or C.textDim )
+
+	-- Capped ranks (e.g. CPT 1/1)
+	if battalion then
+		for _, rank in ipairs( battalion.ladder.ranks ) do
+			if rank.max then
+				local used = 0
+				for _, row in ipairs( rows ) do
+					if row.rank_id == rank.id then used = used + 1 end
+				end
+				cell( rank.name .. " slots", used .. " / " .. rank.max,
+					used >= rank.max and C.gold or C.text )
+			end
+		end
+	end
+
+	-- Lore slots + holders (payload carries lore_id since v6)
+	if SWRP.Lore then
+		for _, slot in ipairs( SWRP.Lore.SlotsFor( state.roster.battalion_id ) ) do
+			local holder
+			for _, row in ipairs( rows ) do
+				if row.lore_id == slot.id then holder = row break end
+			end
+			cell( slot.name, holder and holder.name or "Open",
+				holder and C.gold or C.label, holder and C.gold or nil )
+		end
+	end
+end
+
 function Battalion.OnRoster( data )
 	state.roster = data
 	rebuild()
+	rebuildUnit()
 end
 
 --------------------------------------------------------------------------------
@@ -228,15 +302,23 @@ UI.RegisterMenuTab( {
 		local C     = theme.colors
 		local lp    = LocalPlayer()
 
-		-- Cap content ~1150px (playtest: rows stretched edge-to-edge on wide
-		-- monitors, putting columns a head-turn apart).
-		local rosterCap = math.max( 0, ( ScrW() - theme.spacing.termX * 2 ) - 1150 )
+			-- Unit panel (right zone, v6) — created first so Dock(RIGHT) claims
+			-- its width before the header/list fill the rest.
+			local unit = vgui.Create( "DPanel", panel )
+			unit:Dock( RIGHT )
+			unit:SetWide( 340 )
+			unit:DockMargin( 44, 0, 0, 0 )
+			unit:DockPadding( 0, 26, 0, 0 )
+			unit.Paint = function( self, w, h )
+				draw.SimpleText( "UNIT COMMAND", "SWRP.Label", 0, 0, C.label )
+			end
+			state.unit = unit
 
 		-- Header line: battalion statement + counts + search + invite
 		local head = vgui.Create( "DPanel", panel )
 		head:Dock( TOP )
 		head:SetTall( 46 )
-		head:DockMargin( 0, 0, rosterCap, 16 )
+		head:DockMargin( 0, 0, 0, 16 )
 		head.Paint = function( self, w, h )
 			local battalion = Character.GetBattalion( lp )
 			draw.SimpleText( string.upper( battalion and battalion.name or "BATTALION" ),
@@ -274,12 +356,13 @@ UI.RegisterMenuTab( {
 
 		local list = vgui.Create( "DScrollPanel", panel )
 		list:Dock( FILL )
-		list:DockMargin( 0, 0, rosterCap, 0 )
+		list:DockMargin( 0, 0, 0, 0 )
 		SWRP.UI.Scrollbar( list )
 		state.list    = list
 		state.animate = true
 
 		rebuild()
+		rebuildUnit()
 		SWRP.Net.Send( "swrp.battalion.roster_request", {} )
 	end,
 } )
