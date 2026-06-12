@@ -302,17 +302,17 @@ UI.RegisterMenuTab( {
 		local C     = theme.colors
 		local lp    = LocalPlayer()
 
-			-- Unit panel (right zone, v6) — created first so Dock(RIGHT) claims
-			-- its width before the header/list fill the rest.
-			local unit = vgui.Create( "DPanel", panel )
-			unit:Dock( RIGHT )
-			unit:SetWide( 340 )
-			unit:DockMargin( 44, 0, 0, 0 )
-			unit:DockPadding( 0, 26, 0, 0 )
-			unit.Paint = function( self, w, h )
-				draw.SimpleText( "UNIT COMMAND", "SWRP.Label", 0, 0, C.label )
-			end
-			state.unit = unit
+		-- Unit panel (right zone, v6) — created first so Dock(RIGHT) claims
+		-- its width before the header/list fill the rest.
+		local unit = vgui.Create( "DPanel", panel )
+		unit:Dock( RIGHT )
+		unit:SetWide( 340 )
+		unit:DockMargin( 44, 0, 0, 0 )
+		unit:DockPadding( 0, 26, 0, 0 )
+		unit.Paint = function( self, w, h )
+			draw.SimpleText( "UNIT COMMAND", "SWRP.Label", 0, 0, C.label )
+		end
+		state.unit = unit
 
 		-- Header line: battalion statement + counts + search + invite
 		local head = vgui.Create( "DPanel", panel )
