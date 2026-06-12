@@ -556,6 +556,44 @@ function UI.Terminal()
 		surface.DrawRect( self._ulX, h - 3, self._ulW, 2 )
 	end
 
+	-- Identity strip (v6): green caps identity on every tab (the AotR line).
+	local ident = vgui.Create( "DPanel", t )
+	ident:Dock( TOP )
+	ident:SetTall( K.identH )
+	ident.Paint = function( self, w, h )
+		local C  = T().colors
+		local lp = LocalPlayer()
+		local Character = SWRP.Character
+		if not ( Character and Character.GetName and IsValid( lp ) ) then return end
+
+		local desig = Character.GetDesignation( lp )
+		local base  = string.match( Character.GetName( lp ), "(%S+)$" ) or lp:Nick()
+		local left  = ( desig ~= "" and ( "CT-" .. desig .. "  " ) or "" )
+			.. "\xE2\x80\x9C" .. string.upper( base ) .. "\xE2\x80\x9D"
+		draw.SimpleText( left, "SWRP.Nav", S.termX, h / 2, C.presence,
+			TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+
+		local battalion = Character.GetBattalion( lp )
+		local rank      = Character.GetRank( lp )
+		local className
+		if SWRP.Class then
+			local a = SWRP.Class.GetAssignment( Character.GetClassId( lp ) )
+			if a then className = SWRP.Class.Resolve( a ).name end
+		end
+
+		surface.SetFont( "SWRP.Nav" )
+		local lw = surface.GetTextSize( left )
+		draw.SimpleText( string.upper(
+			( battalion and battalion.name or "UNASSIGNED" )
+			.. ( rank and ( " · " .. rank.name ) or "" )
+			.. ( className and ( " · " .. className ) or "" ) ),
+			"SWRP.Label", S.termX + lw + 16, h / 2 + 1, C.presenceDim,
+			TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER )
+
+		surface.SetDrawColor( C.hairline )
+		surface.DrawRect( S.termX, h - 1, w - S.termX * 2, 1 )
+	end
+
 	local content = vgui.Create( "DPanel", t )
 	content:Dock( FILL )
 	content:DockPadding( S.termX, S.termY, S.termX, S.termY )
